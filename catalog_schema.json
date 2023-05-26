@@ -1,0 +1,84 @@
+{
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "Catalog Metadata Schema",
+    "type": "object",
+    "version": "0.0.1",
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "Identifies the asset to which this token represents."
+        },
+        "description": {
+            "type": "string",
+            "description": "Description of the asset to which this token represents."
+        },
+        "image": {
+            "type": "string",
+            "description": "Header image for product"
+        },
+        "attributeTypes": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "Name of trait."
+                    },
+                    "display_name": {
+                        "type": "string",
+                        "description": "Display name of trait."
+                    },
+                    "struct_type": {
+                        "type": "string",
+                        "description": "scalar, list, range, ..."
+                    },
+                    "scalar_type": {
+                        "type": "string",
+                        "description": "string, integer, boolean, number, ..."
+                    },
+                    "min": {
+                        "type": [
+                            "string",
+                            "integer",
+                            "number",
+                            "boolean"
+                        ],
+                        "description": "min for trait."
+                    },
+                    "max": {
+                        "type": [
+                            "string",
+                            "integer",
+                            "number",
+                            "boolean"
+                        ],
+                        "description": "min for trait."
+                    },
+                    "list": {
+                        "type": "array",
+                        "items": {
+                            "type": [
+                                "string",
+                                "integer",
+                                "number",
+                                "boolean"
+                            ],
+                            "description": "list values"
+                        }
+                    }
+
+                }
+            },
+            "required": [
+                "name",
+                "description"
+            ]
+        }
+    },
+    "required": [
+        "name",
+        "image",
+        "description"
+    ]
+}
