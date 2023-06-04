@@ -75,6 +75,7 @@ decentraland key is in keys file
 ## GraphQL example queries
 
 Synch decentraland assets "land" and "wearables" from OpenSea to this private network
+After sync of land and wearables make sure and update the .env file with contract address.  Search for contract:
 <pre>
 query {
   synchProducts  { 
@@ -86,6 +87,7 @@ query {
 </pre>
 
 Sync decentraland categories (defined within local files)
+After sync of categories make sure and update the .env file with contract address.  Search for contract:
 <pre>
 query {
   synchCategories  { 
