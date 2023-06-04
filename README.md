@@ -13,5 +13,13 @@ Product Asset service GraphQL API using Graphene in a Django server
 * pip install -r requirements.txt
 
 ## Run service:  startups service on http://127.0.0.1:5000
-flask run --host 0.0.0.0
-```
+flask run --host 0.0.0.
+
+
+## Dependent on these local services
+
+### IPFS local service
+
+### Ethereum Private Network local service
+
+### Redis Cache local service
