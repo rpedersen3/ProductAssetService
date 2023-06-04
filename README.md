@@ -84,3 +84,45 @@ query {
   }
 }
 </pre>
+
+Sync decentraland categories (defined within local files)
+<pre>
+query {
+  synchCategories  { 
+    categories  {
+        name
+    }
+  }
+}
+</pre>
+
+Get Categories
+<pre>
+query {
+  category (slug: "/category/1")  { 
+    id
+    name
+    products {
+      id
+      name
+    }
+    childs {
+      id
+      name
+      products {
+        id
+        name
+      }
+      
+      childs {
+        id
+        name
+        products {
+          id
+          name
+        }
+      }
+    }
+  }
+}
+</pre>
