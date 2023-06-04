@@ -70,7 +70,7 @@ decentraland key is in keys file
 <pre>
 "decentraland"
 "decentraland-wearables"
-<pre/>
+</pre>
 
 ## GraphQL example queries
 
