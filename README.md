@@ -14,7 +14,7 @@ Product Asset service GraphQL API using Graphene in a Django server
 
 ## Run service:  startups service on http://127.0.0.1:5000
 > cd c:\ethereum-nodes <br />
-> flask run --host 0.0.0. <br />
+> flask run --host 0.0.0.0 <br />
 
 
 ## Dependent on these local services
