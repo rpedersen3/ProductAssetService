@@ -60,7 +60,9 @@ class ProductQuery(graphene.ObjectType):
 
     @staticmethod
     def resolve_product(self, info, id, slug, barcode):
-        print("(Rich) resolve product ")
+        print("(Rich) resolve product: " + str(slug))
+
+        
 
         product = Product()
         product.id = "abc"
@@ -126,7 +128,7 @@ def retrieve_category_products(slug):
     cid = tokenURI.replace("ipfs://", "");
     metadataJson = ipfsclient.cat(cid)
 
-    print("l0 meta: " + str(metadataJson))
+    #print("l0 meta: " + str(metadataJson))
 
     metaCategory = json.loads(metadataJson)
     add_products(products, metaCategory.get("products"))
@@ -142,7 +144,7 @@ def retrieve_category_products(slug):
         cid = childTokenURI.replace("ipfs://", "");
         metadataJson = ipfsclient.cat(cid)
         
-        print("l1 meta: " + str(metadataJson))
+        #print("l1 meta: " + str(metadataJson))
 
         metaCategory = json.loads(metadataJson)
         add_products(products, metaCategory.get("products"))
@@ -158,7 +160,7 @@ def retrieve_category_products(slug):
             cid = level2TokenURI.replace("ipfs://", "");
             metadataJson = ipfsclient.cat(cid)
 
-            print("l2 meta: " + str(metadataJson))
+            #print("l2 meta: " + str(metadataJson))
             
             metaCategory = json.loads(metadataJson)
             add_products(products, metaCategory.get("products"))

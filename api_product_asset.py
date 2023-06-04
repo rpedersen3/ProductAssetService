@@ -146,8 +146,9 @@ class ProductAssetQuery(graphene.ObjectType):
             print("(Rich) resolve product_asset for id: " + str(id))
             #product = Product.search([('id', '=', id)], limit=1)
         elif slug:
+            slug = slug.replace("/product-asset/", "")
             print("(Rich) resolve product_asset for slug: " + str(slug))
-            ids = slug.split("/")
+            ids = slug.split("-")
             productId = ids[len(ids)-2]
             assetId = ids[len(ids)-1]
             #print("(Rich) resolve product_asset for id from slug: " + str(assetId))
@@ -191,7 +192,7 @@ class ProductAssetQuery(graphene.ObjectType):
         productAsset.display_name = metaAsset.get("display_name")
         #productAsset.description = assetMetadata["description"]
         productAsset.image = metaAsset.get("image")
-        productAsset.slug = "/product/" + nftContractAddress + "/" + str(tokenId)
+        productAsset.slug = "/product-asset/" + nftContractAddress + "-" + str(tokenId)
         productAsset.attribute_values = []
 
         metaAttributes = metaAsset.get("attributes")
@@ -363,14 +364,14 @@ def get_product_asset_list(current_page, page_size, search, sort, filter: Produc
                     filterAsset = True
 
                     tokenURI = erc721Contract.functions.tokenURI(tokenId).call()
-                    print("token(" + str(tokenId) + ") uri: " + str(tokenURI))
+                    #print("token(" + str(tokenId) + ") uri: " + str(tokenURI))
 
                     cid = tokenURI.replace("ipfs://", "");
                     metadataJson = ipfsclient.cat(cid)
                     
                     metaAsset = json.loads(metadataJson)
 
-                    print("ipfs data: " + str(metadataJson))
+                    #print("ipfs data: " + str(metadataJson))
 
                     productAsset = ProductAsset()
                     productAsset.id = str(tokenId)
@@ -380,7 +381,7 @@ def get_product_asset_list(current_page, page_size, search, sort, filter: Produc
                     productAsset.display_name = metaAsset.get("display_name")
                     #productAsset.description = assetMetadata["description"]
                     productAsset.image = metaAsset.get("image")
-                    productAsset.slug = "/product/" + nftContractAddress + "/" + str(tokenId)
+                    productAsset.slug = "/product-asset/" + nftContractAddress + "-" + str(tokenId)
                     productAsset.attribute_values = []
 
                     metaAttributes = metaAsset.get("attributes")
@@ -411,7 +412,7 @@ def get_product_asset_list(current_page, page_size, search, sort, filter: Produc
                         if attributeFilter:
                             if int(attributeValue.value) < int(attributeFilter.min) or int(attributeValue.value) > int(attributeFilter.max):
                                 filterAsset = False
-                                print("(Rich) ************  not pass filter: " + attributeFilter.name)
+                                #print("(Rich) ************  not pass filter: " + attributeFilter.name)
 
                         #print("product asset =>  attribute values : " + str(attributeValue))
                         productAsset.attribute_values.append(attributeValue)

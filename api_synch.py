@@ -5,6 +5,7 @@ from jsonschema import validate
 import re
 import solcx
 import array
+import os
 
 import graphene
 from graphene import ObjectType
@@ -847,17 +848,21 @@ def retrieve_product_list(collection_slug):
     ipfsclient = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
 
     # get opensea collections dictionary
-    oAPI = OpenseaAPI(apikey="4ef36d35d50844bc8e226113e31e1c56")
+    print("Get OpenSea collection data")
+    openSeaApiKey = os.environ.get('OPENSEA_APIKEY')
+    print("key " + str(openSeaApiKey))
+    
+    oAPI = OpenseaAPI(apikey=openSeaApiKey)
     result = oAPI.collection(collection_slug=collection_slug)
 
-    oAPI.collection()
+    print(" got results ")
     
 
     #print(type(result))
-    #json_object = json.dumps(result, indent = 4) 
-    #print("------------------------------------")
-    #print(json_object)
-    #print("------------------------------------")
+    json_object = json.dumps(result, indent = 4) 
+    print("------------------------------------")
+    print(json_object)
+    print("------------------------------------")
 
 
     # get collection from dictionary and create collection object
@@ -982,9 +987,9 @@ def retrieve_product_list(collection_slug):
         
 def synch_product_list(current_page, page_size, search, sort, **kwargs):
 
-    #retrieve_product_list("decentraland")
+    retrieve_product_list("decentraland")
 
-    retrieve_product_list("decentraland-wearables")
+    #retrieve_product_list("decentraland-wearables")
     
 
 

@@ -83,14 +83,18 @@ def parse_attribute_types(category, metaAttributeTypes):
 
 def retrieve_category(slug):
 
+    print("connect to blockchain on http://localhost:8546")
+
     w3 = Web3(Web3.HTTPProvider('http://localhost:8546'))
     w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
+    print("connect to ipfs on /ip4/127.0.0.1/tcp/5001")
     ipfsclient = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
 
     nftContractAddress = "0x81861607Ea72B3BD21589f4Fce59658D4f0A2b06"
 
 
+    print("retrieve category contract")
     with open("contracts/catalogContract.json") as f:
         info_json = json.load(f)
     catABI = info_json["abi"]
@@ -102,6 +106,7 @@ def retrieve_category(slug):
 
     tokenURI = categoryContract.functions.tokenURI(tokenId).call()
 
+    print("retrieve category metadata")
     cid = tokenURI.replace("ipfs://", "");
     metadataJson = ipfsclient.cat(cid)
 

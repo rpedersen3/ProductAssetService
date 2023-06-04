@@ -8,10 +8,13 @@ from api_schema import schema
 # Importing this view so Flask can delegate to Graphene
 app=Flask(__name__)
 
+print("add app routes")
 # Adding a single route for /
 @app.route("/")
 def young_ben():
-    return "Hello There"
+    return "go to http://127.0.0.1:5000/graphql"
+
+print("add url rule")
 
 # Adding another route for GraphQL at /graphql
 app.add_url_rule(
@@ -22,3 +25,5 @@ app.add_url_rule(
         graphiql=True
     )
 )
+
+print("done")
