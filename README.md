@@ -63,15 +63,14 @@ Contracts are found in C:\github\web3store\contracts
 
 View these on visual studio code => remix extension
 
-<<<<<<< HEAD
 ## OpenSea collections retrieved from
 
 decentraland key is in keys file
 
+<pre>
 "decentraland"
 "decentraland-wearables"
-=======
->>>>>>> a41d28e14f5bf82e45e41ee9cfe9926658a10e87
+<pre/>
 
 ## GraphQL example queries
 
