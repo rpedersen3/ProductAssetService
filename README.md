@@ -16,6 +16,9 @@ Product Asset service GraphQL API using Graphene in a Django server
 > cd c:\ethereum-nodes <br />
 > flask run --host 0.0.0.0 <br />
 
+You can now query this graphql api with: 
+http://127.0.0.1:5000/graphql
+
 
 ## Dependent on these local services
 
@@ -53,3 +56,23 @@ To startup redis you need to first go to ubuntu environment wsl.  Then startup r
 
 Redis should now be running on 127.0.0.1:6379
 
+
+## Ethereum Contracts called by service
+
+Contracts are found in C:\github\web3store\contracts
+
+View these on visual studio code => remix extension
+
+
+## GraphQL example queries
+
+Synch decentraland assets "land" and "wearables" from OpenSea to this private network
+<pre>
+query {
+  synchProducts  { 
+    products  {
+        name
+    }
+  }
+}
+</pre>
