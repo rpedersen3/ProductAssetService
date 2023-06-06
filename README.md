@@ -63,23 +63,68 @@ Contracts are found in C:\github\web3store\contracts
 
 View these on visual studio code => remix extension
 
-
+<<<<<<< HEAD
 ## OpenSea collections retrieved from
 
 decentraland key is in keys file
 
-"decentraland" <br />
-"decentraland-wearables" <br />
-
+"decentraland"
+"decentraland-wearables"
+=======
+>>>>>>> a41d28e14f5bf82e45e41ee9cfe9926658a10e87
 
 ## GraphQL example queries
 
 Synch decentraland assets "land" and "wearables" from OpenSea to this private network
+After sync of land and wearables make sure and update the .env file with contract address.  Search for contract:
 <pre>
 query {
   synchProducts  { 
     products  {
         name
+    }
+  }
+}
+</pre>
+
+Sync decentraland categories (defined within local files)
+After sync of categories make sure and update the .env file with contract address.  Search for contract:
+<pre>
+query {
+  synchCategories  { 
+    categories  {
+        name
+    }
+  }
+}
+</pre>
+
+Get Categories
+<pre>
+query {
+  category (slug: "/category/1")  { 
+    id
+    name
+    products {
+      id
+      name
+    }
+    childs {
+      id
+      name
+      products {
+        id
+        name
+      }
+      
+      childs {
+        id
+        name
+        products {
+          id
+          name
+        }
+      }
     }
   }
 }
