@@ -9,11 +9,13 @@ from api_product_asset_query import ProductAssetQuery, ProductAssetList
 from api_synch import SynchQuery, SynchProductList, SynchCategoryList
 from api_synch_feature import SynchFeatureQuery, SynchFeatureList
 
-class Query(SynchQuery, SynchFeatureQuery, CategoryQuery, ProductQuery, ProductAssetQuery):
+from api_item_query import ItemQuery, ItemList
+
+class Query(SynchQuery, SynchFeatureQuery, CategoryQuery, ProductQuery, ProductAssetQuery, ItemQuery):
     pass
 
 
 schema = graphene.Schema(
     query=Query,
-    types=[SynchProductList, SynchCategoryList, SynchFeatureList, CategoryList, ProductList, ProductAssetList]
+    types=[SynchProductList, SynchCategoryList, SynchFeatureList, CategoryList, ProductList, ProductAssetList, ItemList]
 )

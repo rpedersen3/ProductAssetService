@@ -13,9 +13,6 @@ import jsonschema
 from jsonschema import validate
 
 
-from constants import erc165ABI, erc721ABI, ERC721InterfaceId, BlockSetId, NFTContractSetId
-from helper import FilterVisibility, SortEnum
-
 from api_attribute import AttributeType, AttributeValue, Attribute, Facet
 
 from api_product import Product, Products, ProductList, ProductFilterInput, ProductSortInput
@@ -31,13 +28,13 @@ import logging
 logger = logging.getLogger(__name__)
 
 def get_abi():
-    with open("contracts/productContract.json") as f:
+    with open("contracts/itemContract.json") as f:
         info_json = json.load(f)
     abi = info_json["abi"]
     return abi
 
 def get_bytecode():
-    with open("contracts/productContract.bin", "r") as f:
+    with open("contracts/itemContract.bin", "r") as f:
         info_bytecode = f.read()
     return info_bytecode
 
@@ -116,7 +113,7 @@ def retrieve_category_products(slug):
     nftContractAddress = os.environ.get('CATEGORY_CONTRACT')
 
 
-    with open("contracts/catalogContract.json") as f:
+    with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
     catABI = info_json["abi"]
 

@@ -67,8 +67,10 @@ class RangeFilterInput(graphene.InputObjectType):
 
 class ItemFilterInput(graphene.InputObjectType):
     ids = graphene.List(graphene.Int)
-    category_id = graphene.List(graphene.Int)
-    category_slug = graphene.String()
+    collectionid = graphene.List(graphene.Int)
+    collection_address = graphene.String()
+    collection_token_id = graphene.Int()
+    collection_slug = graphene.String()
     # Deprecated
     attribute_value_id = graphene.List(graphene.Int)
     attrib_values = graphene.List(graphene.String)

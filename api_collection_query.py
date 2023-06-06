@@ -16,8 +16,6 @@ from jsonschema import validate
 from api_attribute import AttributeType
 from api_collection import Collection, CollectionFilterInput, CollectionList, Collections, CollectionSortInput
 
-from constants import erc165ABI, erc721ABI, ERC721InterfaceId, BlockSetId, NFTContractSetId
-from helper import FilterVisibility, SortEnum
 
 
 
@@ -91,10 +89,10 @@ def retrieve_collection(slug):
     print("connect to ipfs on /ip4/127.0.0.1/tcp/5001")
     ipfsclient = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
 
-    nftContractAddress = os.environ.get('CATEGORY_CONTRACT')
+    nftContractAddress = os.environ.get('FEATURE_COLLECTION_CONTRACT')
 
     print("retrieve collection contract")
-    with open("contracts/catalogContract.json") as f:
+    with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
     catABI = info_json["abi"]
 

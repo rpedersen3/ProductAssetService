@@ -15,7 +15,6 @@ from web3.middleware import geth_poa_middleware
 
 import ipfshttpclient
 
-from constants import erc165ABI, erc721ABI, ERC721InterfaceId, BlockSetId, NFTContractSetId
 from helper import FilterVisibility, SortEnum
 
 from api_category import Categories, Category
@@ -128,32 +127,32 @@ class SynchQuery(graphene.ObjectType):
         return SynchCategoryList(categories=categories, total_count=total_count)
 
 def get_product_abi():
-    with open("contracts/productContract.json") as f:
+    with open("contracts/itemContract.json") as f:
         info_json = json.load(f)
     abi = info_json["abi"]
     return abi
 
 def get_product_bytecode():
-    with open("contracts/productContract.bin", "r") as f:
+    with open("contracts/itemContract.bin", "r") as f:
         info_bytecode = f.read()
     return info_bytecode
 
 
 def get_product_metadata_schema():
-    with open("product_schema.json") as f:
+    with open("item_schema.json") as f:
         info_json = f.read()
     return info_json
 
 
 
 def get_catalog_abi():
-    with open("contracts/catalogContract.json") as f:
+    with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
     abi = info_json["abi"]
     return abi
 
 def get_catalog_bytecode():
-    with open("contracts/catalogContract.bin", "r") as f:
+    with open("contracts/collectionContract.bin", "r") as f:
         info_bytecode = f.read()
     return info_bytecode
 

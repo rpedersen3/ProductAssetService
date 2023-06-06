@@ -17,8 +17,6 @@ from api_attribute import AttributeType
 from api_product import Product
 from api_category import Category, CategoryFilterInput, CategoryList, Categories, CategorySortInput
 
-from constants import erc165ABI, erc721ABI, ERC721InterfaceId, BlockSetId, NFTContractSetId
-from helper import FilterVisibility, SortEnum
 
 
 
@@ -95,7 +93,7 @@ def retrieve_category(slug):
     nftContractAddress = os.environ.get('CATEGORY_CONTRACT')
 
     print("retrieve category contract")
-    with open("contracts/catalogContract.json") as f:
+    with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
     catABI = info_json["abi"]
 

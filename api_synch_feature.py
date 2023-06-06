@@ -21,8 +21,6 @@ from api_synch import SynchFilterInput, SynchSortInput
 
 import ipfshttpclient
 
-from constants import erc165ABI, erc721ABI, ERC721InterfaceId, BlockSetId, NFTContractSetId
-from helper import FilterVisibility, SortEnum
 
 from attribute_type_metadata import AttributeTypeMetadata
 from attribute_metadata import AttributeMetadata
@@ -97,13 +95,13 @@ def validate_json(json_data, json_schema):
 
 # collection stuff
 def get_collection_abi():
-    with open("contracts/catalogContract.json") as f:
+    with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
     abi = info_json["abi"]
     return abi
 
 def get_collection_bytecode():
-    with open("contracts/catalogContract.bin", "r") as f:
+    with open("contracts/collectionContract.bin", "r") as f:
         info_bytecode = f.read()
     return info_bytecode
 
@@ -131,19 +129,19 @@ def getCollectionSchema():
 
 # item stuff
 def get_item_abi():
-    with open("contracts/productContract.json") as f:
+    with open("contracts/itemContract.json") as f:
         info_json = json.load(f)
     abi = info_json["abi"]
     return abi
 
 def get_item_bytecode():
-    with open("contracts/productContract.bin", "r") as f:
+    with open("contracts/itemContract.bin", "r") as f:
         info_bytecode = f.read()
     return info_bytecode
 
 
 def get_item_metadata_schema():
-    with open("product_schema.json") as f:
+    with open("item_schema.json") as f:
         info_json = f.read()
     return info_json
 
@@ -389,156 +387,6 @@ def getFeatureItemMetadata(feature, itemSchemaJson: str):
     return itemMetadataJson
 
 
-'''
-
-
-def getCollectionMetadata(collection: Collection, categorySchemaJson: str):
-
-    features = []
-
-    attributeTypes = []
-    if category.name.lower() == "wearables":
-
-        featureContractAddress = os.environ.get('PRODUCT_WEARABLE_CONTRACT')
-        print("(Rich) wearable add feature ")
-        feature = FeatureMetadata(
-            id=featureContractAddress,
-            name="decentraland-wearables"
-        )
-        features.append(feature)
-
-        # define decentraland land attribute types
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="body_shapes",
-                    display_name="body_shapes",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["base male", "base female"]))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="category",
-                    display_name="category",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["Helmet", "Hat"]))
-            
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="collection",
-                    display_name="collection",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["Halloween 2019"]))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="rarity",
-                    display_name="rarity",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["rare"]))
-
-
-    if category.name.lower() == "parcels":
-
-        featureContractAddress = os.environ.get('PRODUCT_LAND_CONTRACT')
-        feature = FeatureMetadata(
-            id=featureContractAddress,
-            name="Decentraland"
-        )
-        features.append(feature)
-
-        # define decentraland land attribute types
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="type",
-                    display_name="type",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["parcel", "estate"]))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="status",
-                    display_name="status",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["buy", "rent"]))
-            
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="x",
-                    display_name="x",
-                    struct_type="scalar",
-                    scalar_type="integer",
-                    min=-200,
-                    max=200))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="y",
-                    display_name = "y",
-                    struct_type="scalar",
-                    scalar_type="integer",
-                    min=-200,
-                    max=200))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="adjacent-to-road",
-                    display_name = "adjacent to road",
-                    struct_type="scalar",
-                    scalar_type="boolean"))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="near-a-district",
-                    display_name = "near a district",
-                    struct_type="scalar",
-                    scalar_type="boolean"))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="distance-to-road",
-                    display_name = "distance to road",
-                    struct_type="scalar",
-                    scalar_type="integer",
-                    min = 0,
-                    max = 10))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="distance-to-district",
-                    display_name = "distance to district",
-                    struct_type="scalar",
-                    scalar_type="integer",
-                    min = 0,
-                    max = 10))
-
-    categoryMetadata = CategoryMetadata(
-        name = category.name,  
-        display_name = category.name, 
-        image = category.image, 
-        description="", 
-        features=features,
-        attribute_types = attributeTypes)
-
-    categoryMetadataJson = categoryMetadata.toJSON()
-    print("Decentraland Category Metadata")
-    print("------------------------------------")
-    print(categoryMetadataJson)
-    print("------------------------------------")
-
-    #validate metadata
-    #print("validate schema")
-    validate_json(categoryMetadataJson, categorySchemaJson)
-    #print("schema validated ")
-
-    return categoryMetadataJson
-
-'''
 
 def constructCollectionFactory(w3, name, symbol):
 
@@ -616,7 +464,7 @@ def retrieve_ogc_collection(collection_slug):
 
     print("(Rich) construct factories ")
     collectionFactory = constructCollectionFactory(w3, "OGC Collection", "OGCC")
-    itemFactory = constructItemFactory(w3, "OGC Item", "OGCI")
+    featureFactory = constructItemFactory(w3, "OGC Item", "OGCI")
     
 
     
@@ -682,7 +530,34 @@ def retrieve_ogc_collection(collection_slug):
                 itemUri = "ipfs://" + featureMetadataHash
 
                 nonce1 = w3.eth.get_transaction_count(ownerPublicAddress) 
-                transaction = itemFactory.functions.mint(itemUri).build_transaction({
+                transaction = featureFactory.functions.mint(itemUri).build_transaction({
+                        'from': ownerPublicAddress,
+                        'gas' : 8000000,
+                        'nonce': nonce1,
+                    })
+                signed_tx = w3.eth.account.sign_transaction(transaction, ownerPrivateKey)
+                txn_hash1 = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+                featureNFTReceipt = w3.eth.wait_for_transaction_receipt(txn_hash1)
+
+                vals = array.array('B', featureNFTReceipt.logs[0].topics[3])
+                featureNFTTokenId = vals[len(vals) - 1]
+
+
+                print("add child token to parent")
+                print("owner add: " + ownerPublicAddress)
+                print("feature contract add: " + featureFactory.address)
+                print("feature token id: " + str(featureNFTTokenId))
+                print("collection token id: " + str(collectionNFTTokenId))
+
+                # add child feature to parent collection
+                nonce1 = w3.eth.get_transaction_count(ownerPublicAddress) 
+                transaction = featureFactory.functions.nestTransferFrom(
+                    ownerPublicAddress,
+                    collectionFactory.address,
+                    featureNFTTokenId,
+                    collectionNFTTokenId,
+                    "0x0000000000000000000000000000000000000000000000000000000000000000"
+                ).build_transaction({
                         'from': ownerPublicAddress,
                         'gas' : 8000000,
                         'nonce': nonce1,
@@ -691,8 +566,25 @@ def retrieve_ogc_collection(collection_slug):
                 txn_hash1 = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
                 txn_receipt1 = w3.eth.wait_for_transaction_receipt(txn_hash1)
 
-                vals = array.array('B', txn_receipt1.logs[0].topics[3])
-                featureNFTTokenId = vals[len(vals) - 1]
+                print("accept child token addition")
+
+                # accept child to parent
+                nonce1 = w3.eth.get_transaction_count(ownerPublicAddress) 
+                transaction = collectionFactory.functions.acceptChild(
+                    collectionNFTTokenId,
+                    0,
+                    featureFactory.address,
+                    featureNFTTokenId
+                ).build_transaction({
+                        'from': ownerPublicAddress,
+                        'gas' : 8000000,
+                        'nonce': nonce1,
+                    })
+                signed_tx = w3.eth.account.sign_transaction(transaction, ownerPrivateKey)
+                txn_hash1 = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+                txn_receipt1 = w3.eth.wait_for_transaction_receipt(txn_hash1)
+
+                print("done adding child")
 
         
 def synch_feature_list(current_page, page_size, search, sort, **kwargs):

@@ -12,7 +12,6 @@ import jsonschema
 from jsonschema import validate
 
 
-from constants import erc165ABI, erc721ABI, ERC721InterfaceId, BlockSetId, NFTContractSetId
 from helper import FilterVisibility, SortEnum
 
 

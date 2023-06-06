@@ -15,7 +15,7 @@ from jsonschema import validate
 from web3 import Web3
 from web3.middleware import geth_poa_middleware
 
-from constants import erc165ABI, erc721ABI, ERC721InterfaceId, BlockSetId, NFTContractSetId
+from constants import erc165ABI, erc721ABI, ItemInterfaceId, BlockSetId, NFTContractSetId
 from helper import FilterVisibility, SortEnum
 
 from api_attribute import Attribute, AttributeValue
@@ -75,7 +75,7 @@ def retrieve_category_products(slug):
 
     nftContractAddress = os.environ.get('CATEGORY_CONTRACT')
 
-    with open("contracts/catalogContract.json") as f:
+    with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
     catABI = info_json["abi"]
 
@@ -256,7 +256,7 @@ def getERC721Contracts(w3, start, end):
 
 
                     try:
-                        supportsInterface = erc165Contract.functions.supportsInterface(ERC721InterfaceId).call()
+                        supportsInterface = erc165Contract.functions.supportsInterface(ItemInterfaceId).call()
                         if supportsInterface == True:
 
                             if r.sismember(NFTContractSetId, transactionContractAddress) == False:
