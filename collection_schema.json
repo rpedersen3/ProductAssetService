@@ -77,8 +77,6 @@
         }
     },
     "required": [
-        "name",
-        "image",
-        "description"
+        "name"
     ]
 }

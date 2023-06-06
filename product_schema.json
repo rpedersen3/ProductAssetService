@@ -78,7 +78,6 @@
     },
     "required": [
         "name",
-        "image",
         "description"
     ]
 }

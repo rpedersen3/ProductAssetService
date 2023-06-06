@@ -158,7 +158,7 @@ def get_catalog_bytecode():
     return info_bytecode
 
 def get_catalog_metadata_schema():
-    with open("catalog_schema.json") as f:
+    with open("collection_schema.json") as f:
         info_json = f.read()
     return info_json
 
@@ -538,9 +538,10 @@ def getCategoryMetadata(category: Category, categorySchemaJson: str):
     attributeTypes = []
     if category.name.lower() == "wearables":
 
+        productContractAddress = os.environ.get('PRODUCT_WEARABLE_CONTRACT')
         print("(Rich) wearable add product ")
         product = ProductMetadata(
-            id="0xE23c70A215bCb0Aa5b34a1edFF71e367fb70c6Aa",
+            id=productContractAddress,
             name="decentraland-wearables"
         )
         products.append(product)
@@ -581,8 +582,9 @@ def getCategoryMetadata(category: Category, categorySchemaJson: str):
 
     if category.name.lower() == "parcels":
 
+        productContractAddress = os.environ.get('PRODUCT_LAND_CONTRACT')
         product = ProductMetadata(
-            id="0xf7F8C5e703B973b20F5ceFd9e78896a32E4a0bc9",
+            id=productContractAddress,
             name="Decentraland"
         )
         products.append(product)
@@ -704,9 +706,11 @@ def synch_category_list(current_page, page_size, search, sort, **kwargs):
     catalogABI = get_catalog_abi()
     catalogBytecode = get_catalog_bytecode()
 
+    ethereumPrivateKey = os.environ.get('ETHEREUM_PRIVATE_KEY')
+    ethereumAdminAddress = os.environ.get('ETHEREUM_ADMIN_ADDRESS')
     account_from = {
-        "private_key": "6a55033da457aa2e3442875cf1a6843f8e9d3e2a357d3baf4b2b9c239d0e76d7",
-        "address": "0x4FB0032AA225a94EdB257ae1d2338DfDc6d23e7F",
+        "private_key": ethereumPrivateKey,
+        "address": ethereumAdminAddress,
     }
 
     print("start creating catalog contract ")
@@ -850,19 +854,15 @@ def retrieve_product_list(collection_slug):
     # get opensea collections dictionary
     print("Get OpenSea collection data")
     openSeaApiKey = os.environ.get('OPENSEA_APIKEY')
-    print("key " + str(openSeaApiKey))
     
     oAPI = OpenseaAPI(apikey=openSeaApiKey)
     result = oAPI.collection(collection_slug=collection_slug)
 
-    print(" got results ")
-    
-
     #print(type(result))
-    json_object = json.dumps(result, indent = 4) 
-    print("------------------------------------")
-    print(json_object)
-    print("------------------------------------")
+    #json_object = json.dumps(result, indent = 4) 
+    #print("------------------------------------")
+    #print(json_object)
+    #print("------------------------------------")
 
 
     # get collection from dictionary and create collection object
@@ -890,8 +890,9 @@ def retrieve_product_list(collection_slug):
         productABI = get_product_abi()
         productBytecode = get_product_bytecode()
 
+        ethereumPrivateKey = os.environ.get('ETHEREUM_PRIVATE_KEY')
         account_from = {
-            "private_key": "6a55033da457aa2e3442875cf1a6843f8e9d3e2a357d3baf4b2b9c239d0e76d7",
+            "private_key": ethereumPrivateKey,
             "address": "0x4FB0032AA225a94EdB257ae1d2338DfDc6d23e7F",
         }
 
@@ -987,9 +988,9 @@ def retrieve_product_list(collection_slug):
         
 def synch_product_list(current_page, page_size, search, sort, **kwargs):
 
-    retrieve_product_list("decentraland")
+    #retrieve_product_list("decentraland")
 
-    #retrieve_product_list("decentraland-wearables")
+    retrieve_product_list("decentraland-wearables")
     
 
 

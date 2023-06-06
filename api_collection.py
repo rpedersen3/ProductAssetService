@@ -4,17 +4,16 @@ from graphene.types import generic
 
 from helper import FilterVisibility, SortEnum
 
-from api_attribute_obj import AttributeType
-from api_product_obj import Product
+from api_attribute import AttributeType
 
-class Category(ObjectType):
+class Collection(ObjectType):
     id = graphene.String(required=True)
     name = graphene.String()
     image = graphene.String()
-    parent = graphene.Field(lambda: Category)
-    childs = graphene.List(graphene.NonNull(lambda: Category))
+    parent = graphene.Field(lambda: Collection)
+    childs = graphene.List(graphene.NonNull(lambda: Collection))
     slug = graphene.String()
-    products = graphene.List(graphene.NonNull(lambda: Product))
+
     attribute_types = graphene.List(graphene.NonNull(lambda: AttributeType))
     json_ld = generic.GenericScalar()
 
@@ -38,19 +37,19 @@ class Category(ObjectType):
     def resolve_json_ld(self, info):
         return self.get_json_ld()
 
-class Categories(graphene.Interface):
-    categories = graphene.List(Category)
+class Collections(graphene.Interface):
+    collections = graphene.List(Collection)
     total_count = graphene.Int(required=True)
 
-class CategoryList(graphene.ObjectType):
+class CollectionList(graphene.ObjectType):
     class Meta:
-        interfaces = (Categories,)
+        interfaces = (Collections,)
 
-class CategoryFilterInput(graphene.InputObjectType):
+class CollectionFilterInput(graphene.InputObjectType):
     id = graphene.List(graphene.String)
     slug = graphene.String()
     parent = graphene.Boolean()
 
 
-class CategorySortInput(graphene.InputObjectType):
+class CollectionSortInput(graphene.InputObjectType):
     id = SortEnum()

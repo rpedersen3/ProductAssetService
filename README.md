@@ -13,7 +13,7 @@ Product Asset service GraphQL API using Graphene in a Django server
 > pip install -r requirements.txt <br />
 
 ## Run service:  startups service on http://127.0.0.1:5000
-> cd c:\ethereum-nodes <br />
+> cd c:\github\ProductAssetService <br />
 > flask run --host 0.0.0.0 <br />
 
 You can now query this graphql api with: 
@@ -63,15 +63,14 @@ Contracts are found in C:\github\web3store\contracts
 
 View these on visual studio code => remix extension
 
-<<<<<<< HEAD
+
 ## OpenSea collections retrieved from
 
 decentraland key is in keys file
 
-"decentraland"
-"decentraland-wearables"
-=======
->>>>>>> a41d28e14f5bf82e45e41ee9cfe9926658a10e87
+"decentraland" <br />
+"decentraland-wearables" <br />
+
 
 ## GraphQL example queries
 

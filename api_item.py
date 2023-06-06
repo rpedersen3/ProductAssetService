@@ -4,14 +4,16 @@ from graphene.types import generic
 
 from helper import FilterVisibility, SortEnum
 
-from api_attribute_obj import AttributeType, AttributeValue
-from api_product_obj import Product
+from api_collection import Collection
+from api_attribute import AttributeType, AttributeValue
 
-class ProductAsset(ObjectType):
+from attribute_type_metadata import AttributeTypeMetadata
+
+class Item(ObjectType):
 
     id = graphene.String(required=True)
     
-    product = graphene.Field((lambda: Product), description='Specific to Product Asset')
+    collection = graphene.Field((lambda: Collection), description='Collection')
 
     type_id = graphene.String()
     visibility = graphene.Int()
@@ -46,24 +48,24 @@ class ProductAsset(ObjectType):
     
     json_ld = generic.GenericScalar()
 
-class ProductAssets(graphene.Interface):
+class Items(graphene.Interface):
 
-    productAssets = graphene.List(ProductAsset)
+    items = graphene.List(Item)
     total_count = graphene.Int(required=True)
     attribute_values = graphene.List(AttributeValue)
     min_price = graphene.Float()
     max_price = graphene.Float()
 
-class ProductAssetList(graphene.ObjectType):
+class ItemList(graphene.ObjectType):
     class Meta:
-        interfaces = (ProductAssets,)
+        interfaces = (Items,)
 
 class RangeFilterInput(graphene.InputObjectType):
     name = graphene.String()
     min = graphene.String()
     max = graphene.String()
 
-class ProductAssetFilterInput(graphene.InputObjectType):
+class ItemFilterInput(graphene.InputObjectType):
     ids = graphene.List(graphene.Int)
     category_id = graphene.List(graphene.Int)
     category_slug = graphene.String()
@@ -77,7 +79,7 @@ class ProductAssetFilterInput(graphene.InputObjectType):
     range_filters = graphene.List(RangeFilterInput)
 
 
-class ProductAssetSortInput(graphene.InputObjectType):
+class ItemSortInput(graphene.InputObjectType):
     id = SortEnum()
     name = SortEnum()
     price = SortEnum()
