@@ -19,8 +19,8 @@ class AttributeTypeProperties (MetaProperties):
         self.max = MetaProperty(type=["string", "integer", "number", "boolean"], description="min for trait.")  
         #self.list = MetaProperty(type=["string", "integer", "number", "boolean"], description="trait list")
 
-        properties = MetaProperty(type=["string", "integer", "number", "boolean"], description="list value")
-        self.list = MetaStruct(type="array", properties=properties)  
+        #properties = MetaProperty(type=["string", "integer", "number", "boolean"], description="list value")
+        #self.list = MetaStruct(type="array", properties=properties)  
     
     name: MetaProperty
     display_type: MetaProperty

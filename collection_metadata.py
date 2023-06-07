@@ -10,29 +10,26 @@ from attribute_type_metadata import AttributeTypeMetadata
 
 @dataclass
 class CollectionMetadata:
-    def __init__(self, id, name, type, description=None, attributeTypes=None):
-        self.id = id
+    def __init__(self, name, type, description=None, attribute_types=None):
         self.name = name
         self.type = type
         self.description = description
-        self.attributeTypes = attributeTypes
+        self.attribute_types = attribute_types
 
-    id: str
     name: str
     type: str
     description: str
 
-    attributeTypes: List[AttributeTypeMetadata]
+    attribute_types: List[AttributeTypeMetadata]
 
 
     @staticmethod
     def from_dict(obj: Any) -> 'CollectionMetadata':
-        _id = str(obj.get("id"))
         _name = str(obj.get("name"))
         _type = str(obj.get("type"))
         _description = str(obj.get("description"))
 
-        return CollectionMetadata(_id, _name, _type, _description)
+        return CollectionMetadata(_name, _type, _description)
     
     def toJSON(self):
         jsn = json.dumps(self,

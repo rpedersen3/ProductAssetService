@@ -8,11 +8,11 @@ from attribute_type_metadata import AttributeTypeMetadata
 
 @dataclass
 class CatalogMetadata:
-    def __init__(self, name, description=None, image=None, attributeTypes=None, facets=None):
+    def __init__(self, name, description=None, image=None, attribute_types=None, facets=None):
         self.name = name
         self.description = description
         self.image = image
-        self.attributeTypes = attributeTypes
+        self.attribute_types = attribute_types
 
 
     name: str
@@ -21,7 +21,7 @@ class CatalogMetadata:
     struct_type: str
     scalar_type: str
 
-    attributeTypes: List[AttributeTypeMetadata]
+    attribute_types: List[AttributeTypeMetadata]
 
 
 

@@ -19,7 +19,7 @@ class ProductProperties (MetaProperties):
 
         properties = AttributeTypeProperties()
         required = ["name", "description"]
-        self.attributeTypes = MetaStruct(type="array", properties=properties, required=required)
+        self.attribute_types = MetaStruct(type="array", properties=properties, required=required)
         
         
 
@@ -27,7 +27,7 @@ class ProductProperties (MetaProperties):
     description: MetaProperty
     image: MetaProperty
 
-    attributeTypes = MetaStruct
+    attribute_types = MetaStruct
 
 
     def from_dict(obj: Any) -> 'ProductProperties':

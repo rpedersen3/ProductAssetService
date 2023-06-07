@@ -49,6 +49,8 @@ class CollectionFilterInput(graphene.InputObjectType):
     id = graphene.List(graphene.String)
     slug = graphene.String()
     parent = graphene.Boolean()
+    collection_address = graphene.String()
+    collection_token_id = graphene.Int()
 
 
 class CollectionSortInput(graphene.InputObjectType):

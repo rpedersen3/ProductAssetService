@@ -55,7 +55,7 @@ def get_collection_contract(w3, collectionContractAddress):
 
     with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
-    collectionABI = info_json["abi"]
+    collectionABI = info_json
     collectionFactoryContract = w3.eth.contract(address=collectionContractAddress, 
                                         abi=collectionABI)
     
@@ -69,7 +69,7 @@ def get_item_contract(w3, itemContractAddress):
 
     with open("contracts/itemContract.json") as f:
         info_json = json.load(f)
-    itemABI = info_json["abi"]
+    itemABI = info_json
     itemFactoryContract = w3.eth.contract(address=itemContractAddress, 
                                         abi=itemABI)
     
@@ -164,9 +164,11 @@ class ItemQuery(graphene.ObjectType):
     )
     
 
+    
     @staticmethod
     def resolve_item(self, info, id=None, slug=None, barcode=None):
-
+        print("************ not implemented ************")
+        '''
         if id:
             print("(Rich) resolve item for id: " + str(id))
             #product = Product.search([('id', '=', id)], limit=1)
@@ -239,6 +241,8 @@ class ItemQuery(graphene.ObjectType):
 
         print("(Rich) product asset found: " + str(item))
         return item
+        '''
+        return
 
     @staticmethod
     def resolve_items(self, info, filter, current_page, page_size, search, sort):
@@ -262,20 +266,6 @@ def get_item_list(current_page, page_size, search, sort, filter: ItemFilterInput
     w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
     collectionNFTs = []
-
-    collectionContractAddress = os.environ.get('FEATURE_COLLECTION_CONTRACT')
-    with open("contracts/collectionContract.json") as f:
-        info_json = json.load(f)
-    collectionABI = info_json["abi"]
-    collectionFactoryContract = w3.eth.contract(address=collectionContractAddress, 
-                                        abi=collectionABI)
-    
-    itemContractAddress = os.environ.get('FEATURE_ITEM_CONTRACT')
-    with open("contracts/itemContract.json") as f:
-        info_json = json.load(f)
-    itemABI = info_json["abi"]
-    itemFactoryContract = w3.eth.contract(address=itemContractAddress, 
-                                        abi=itemABI)
 
     # get list of items
     collectionNFTs = []
@@ -309,15 +299,18 @@ def get_item_list(current_page, page_size, search, sort, filter: ItemFilterInput
         collectionFactoryContract = get_collection_contract(w3, collectionContractAddress)
 
         childIds = collectionFactoryContract.functions.childrenOf(collectionTokenId).call()
+
+        print("childsIds: " + str(childIds))
         for childId in childIds:
 
             childTokenId = childId[0]
             childContractAddress = childId[1]
 
+            print("get item contract: " + str(childContractAddress))
             itemContractFactory = get_item_contract(w3, childContractAddress)
             if itemContractFactory != None:
 
-                tokenURI = itemFactoryContract.functions.tokenURI(childTokenId).call()
+                tokenURI = itemContractFactory.functions.tokenURI(childTokenId).call()
                 cid = tokenURI.replace("ipfs://", "");
                 metadataJson = ipfsclient.cat(cid)
                 
@@ -331,52 +324,52 @@ def get_item_list(current_page, page_size, search, sort, filter: ItemFilterInput
                 item.name = itemMetadata.get("name")
                 item.display_name = itemMetadata.get("display_name")
 
-                '''
-                #item.description = assetMetadata["description"]
-                #item.image = metaAsset.get("image")
+                item.description = itemMetadata.get("description")
+                item.image = itemMetadata.get("image")
                 #item.slug = "/product-asset/" + nftContractAddress + "-" + str(tokenId)
                 item.attribute_values = []
 
-                metaAttributes = metaAsset.get("attributes")
-                for metaAttribute in metaAttributes:
+                metaAttributes = itemMetadata.get("attributes")
+                if metaAttributes != None:
+                    for metaAttribute in metaAttributes:
 
-                    #print("meta attribute: " + str(metaAttribute))
+                        print("meta attribute: " + str(metaAttribute))
 
-                    attributeValue = AttributeValue()
-                    attributeValue.id = metaAttribute.get("id")
-                    attributeValue.type = metaAttribute.get("type")
-                    attributeValue.display_type = metaAttribute.get("display_type")
-                    attributeValue.display_name = metaAttribute.get("display_name")
-                    attributeValue.value = metaAttribute.get("value")
+                        attributeValue = AttributeValue()
+                        attributeValue.id = metaAttribute.get("id")
+                        attributeValue.type = metaAttribute.get("type")
+                        attributeValue.display_type = metaAttribute.get("display_type")
+                        attributeValue.display_name = metaAttribute.get("display_name")
+                        attributeValue.value = metaAttribute.get("value")
 
-                    #display_type = "checkbox"
-                    #if (metaAttribute.get("display_type") == "number"):
-                    #    display_type = "number"
-                    #attributeValue.display_type = display_type
+                        #display_type = "checkbox"
+                        #if (metaAttribute.get("display_type") == "number"):
+                        #    display_type = "number"
+                        #attributeValue.display_type = display_type
 
-                    attributeFilter = None
-                    if filter != None and filter.range_filters != None:
+                        attributeFilter = None
+                        if filter != None and filter.range_filters != None:
+                            
+                            for range_filter in filter.range_filters: 
+                                if range_filter.name.lower() == metaAttribute.get("type").lower():
+                                    attributeFilter = range_filter
+
                         
-                        for range_filter in filter.range_filters: 
-                            if range_filter.name.lower() == metaAttribute.get("type").lower():
-                                attributeFilter = range_filter
+                        if attributeFilter:
+                            if int(attributeValue.value) < int(attributeFilter.min) or int(attributeValue.value) > int(attributeFilter.max):
+                                filterAsset = False
+                                #print("(Rich) ************  not pass filter: " + attributeFilter.name)
 
-                    
-                    if attributeFilter:
-                        if int(attributeValue.value) < int(attributeFilter.min) or int(attributeValue.value) > int(attributeFilter.max):
-                            filterAsset = False
-                            #print("(Rich) ************  not pass filter: " + attributeFilter.name)
+                        print("item asset =>  attribute values : " + str(attributeValue))
+                        item.attribute_values.append(attributeValue)
 
-                    #print("product asset =>  attribute values : " + str(attributeValue))
-                    item.attribute_values.append(attributeValue)
-                '''
 
-                #print('append product asset: ' + str(item))
+                #print('append item asset: ' + str(item))
                 total_count += 1
 
                 p.append(item)
  
 
-    #print("(Rich) return product assets:  " + str(p))
+    #print("(Rich) return item assets:  " + str(p))
     return p, total_count, attribute_values, 0.0, 0.0
 

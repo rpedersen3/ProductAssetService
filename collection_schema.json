@@ -16,7 +16,7 @@
             "type": "string",
             "description": "Header image for product"
         },
-        "attributeTypes": {
+        "attribute_types": {
             "type": "array",
             "items": {
                 "type": "object",
@@ -71,8 +71,7 @@
                 }
             },
             "required": [
-                "name",
-                "description"
+                "name"
             ]
         }
     },

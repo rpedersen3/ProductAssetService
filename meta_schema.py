@@ -7,17 +7,17 @@ from abc import ABC, abstractmethod
 
 @dataclass
 class MetaProperty:
-    def __init__(self, type, description=None, properties=None, additionalProperties=None, required=None):
+    def __init__(self, type, description=None, properties=None, additional_properties=None, required=None):
         self.type = type
         self.description = description
         self.properties = properties
-        self.additionalProperties = additionalProperties
+        self.additional_properties = additional_properties
         self.required = required
 
     type: str
     description: str
     properties: object
-    additionalProperties: bool
+    additional_properties: bool
     required: List[str]
 
     @staticmethod
@@ -25,9 +25,8 @@ class MetaProperty:
         _type = str(obj.get("type"))
         _description = str(obj.get("description"))
         _properties = MetaProperties.from_dict(obj.get("properties"))
-        _additionalProperties = bool(obj.get("description"))
-        
-        return MetaProperty(_type, _description, _properties, _additionalProperties)
+
+        return MetaProperty(_type, _description, _properties)
     
     def toJSON(self):
         return json.dumps(self, default=lambda o: o.__dict__, 

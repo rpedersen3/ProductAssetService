@@ -19,22 +19,21 @@ from helper import FilterVisibility, SortEnum
 
 from api_category import Categories, Category
 
-from catalog_metadata_schema import CatalogMetadataSchema
-from catalog_metadata import CatalogMetadata
+from api_item import Items, Item
+from api_collection import Collections, Collection
 
-from category_metadata_schema import CategoryMetadataSchema
-from category_metadata import CategoryMetadata
+from collection_metadata_schema import CollectionMetadataSchema
+from collection_metadata import CollectionMetadata
 
-from api_product import Products, Product
+from item_metadata_schema import ItemMetadataSchema
+from item_metadata import ItemMetadata
 
-from product_metadata_schema import ProductMetadataSchema
-from product_metadata import ProductMetadata, AttributeTypeMetadata
-
-from asset_metadata_schema import AssetMetadataSchema
-from asset_metadata import AssetMetadata, AssetAttributeMetadata
+from attribute_type_metadata import AttributeTypeMetadata
+from attribute_metadata import AttributeMetadata
 
 from opensea_decentraland_asset import OpenSeaAsset
 
+from constants import CollectionInterfaceId, ItemInterfaceId
 
 from web3.gas_strategies.rpc import rpc_gas_price_strategy
 
@@ -49,24 +48,24 @@ logger = logging.getLogger(__name__)
 
 
 
-class SynchProducts(graphene.Interface):
+class SynchAssets(graphene.Interface):
 
-    products = graphene.List(Product)
+    items = graphene.List(Item)
     total_count = graphene.Int(required=True)
 
-class SynchProductList(graphene.ObjectType):
+class SynchAssetList(graphene.ObjectType):
     class Meta:
-        interfaces = (Products,)
+        interfaces = (Items,)
 
 
 class SynchCategories(graphene.Interface):
 
-    categories = graphene.List(Category)
+    Collections = graphene.List(Category)
     total_count = graphene.Int(required=True)
 
 class SynchCategoryList(graphene.ObjectType):
     class Meta:
-        interfaces = (Categories,)
+        interfaces = (Collections,)
 
 
 
@@ -91,8 +90,8 @@ class SynchSortInput(graphene.InputObjectType):
 
 class SynchQuery(graphene.ObjectType):
 
-    synch_products = graphene.Field(
-        Products,
+    synch_assets = graphene.Field(
+        Items,
         filter=graphene.Argument(SynchFilterInput, default_value={}),
         current_page=graphene.Int(default_value=1),
         page_size=graphene.Int(default_value=20),
@@ -101,7 +100,7 @@ class SynchQuery(graphene.ObjectType):
     )
 
     synch_categories = graphene.Field(
-        Categories,
+        Collections,
         filter=graphene.Argument(SynchFilterInput, default_value={}),
         current_page=graphene.Int(default_value=1),
         page_size=graphene.Int(default_value=20),
@@ -110,58 +109,51 @@ class SynchQuery(graphene.ObjectType):
     )
     
     @staticmethod
-    def resolve_synch_products(self, info, filter, current_page, page_size, search, sort):
-        #print("(Rich) resolve_synch_products => get products: ")
-        products, total_count = synch_product_list(
+    def resolve_synch_assets(self, info, filter, current_page, page_size, search, sort):
+        #print("(Rich) resolve_synch_assets => get assets: ")
+        items, total_count = synch_asset_list(
             current_page, page_size, search, sort, **filter)
         
-        #print("(Rich) resolve_products => get products return list: ")
-        return SynchProductList(products=products, total_count=total_count)
+        #print("(Rich) resolve_assets => get assets return list: ")
+        return SynchAssetList(items=items, total_count=total_count)
     
     @staticmethod
     def resolve_synch_categories(self, info, filter, current_page, page_size, search, sort):
         #print("(Rich) resolve_synch_categories => get categories: ")
-        categories, total_count = synch_category_list(
+        collections, total_count = synch_category_list(
             current_page, page_size, search, sort, **filter)
         
-        return SynchCategoryList(categories=categories, total_count=total_count)
+        return SynchCategoryList(collections=collections, total_count=total_count)
 
-def get_product_abi():
+def get_item_abi():
     with open("contracts/itemContract.json") as f:
         info_json = json.load(f)
-    abi = info_json["abi"]
+    abi = info_json
     return abi
 
-def get_product_bytecode():
+def get_item_bytecode():
     with open("contracts/itemContract.bin", "r") as f:
         info_bytecode = f.read()
     return info_bytecode
 
 
-def get_product_metadata_schema():
+def get_item_metadata_schema():
     with open("item_schema.json") as f:
         info_json = f.read()
     return info_json
 
 
 
-def get_catalog_abi():
+def get_collection_abi():
     with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
-    abi = info_json["abi"]
+    abi = info_json
     return abi
 
-def get_catalog_bytecode():
+def get_collection_bytecode():
     with open("contracts/collectionContract.bin", "r") as f:
         info_bytecode = f.read()
     return info_bytecode
-
-def get_catalog_metadata_schema():
-    with open("collection_schema.json") as f:
-        info_json = f.read()
-    return info_json
-
-
 
 
 def validate_json(json_data, json_schema):
@@ -178,189 +170,111 @@ def validate_json(json_data, json_schema):
 
 
 
-def getCatalogSchema():
+def constructCollectionFactory(w3, name, symbol):
 
-    # define product schema
-    #productSchema = ProductMetadataSchema()
-    #productSchemaJson = productSchema.toJSON()
+    # construct a new collection contract that will be used to create these collection NFT's
+    collectionABI = get_collection_abi()
+    collectionBytecode = get_collection_bytecode()
 
-    catalogSchemaJson = get_catalog_metadata_schema()
+    ownerPrivateKey = os.environ.get('ETHEREUM_PRIVATE_KEY')
+    ownerPublicAddress = os.environ.get('ETHEREUM_PUBLIC_ADDRESS')
 
-    print("Catalog Metadata Schema")
-    print("------------------------------------")
-    print(catalogSchemaJson)
-    print("------------------------------------")
+    collectionContract = w3.eth.contract(abi=collectionABI, bytecode=collectionBytecode)
+    collection_txn = collectionContract.constructor(name, symbol).build_transaction(
+        {
+            'from': ownerPublicAddress,
+            'nonce': w3.eth.get_transaction_count(ownerPublicAddress),
+        }
+    )
 
-    return catalogSchemaJson
+    #print("create collection contract: " + name + ", symbol: " + symbol)
+    tx_create = w3.eth.account.sign_transaction(collection_txn, ownerPrivateKey)
+    tx_hash = w3.eth.send_raw_transaction(tx_create.rawTransaction)
+    tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
 
-def getCategorySchema():
+    collectionContract = w3.eth.contract(
+        address=tx_receipt.contractAddress,
+        abi=collectionABI
+    )
 
-    # define decentraland nft schema
-    categorySchema = CategoryMetadataSchema()
-    categorySchemaJson = categorySchema.toJSON()
+    print("xxxxxxxxxxxxxxxxxxxxxxxxx  collection contract: " + tx_receipt.contractAddress)
 
-    print("NFT Category Schema ")
-    print("------------------------------------")
-    print(categorySchemaJson)
-    print("------------------------------------")
+    return collectionContract
 
-    return categorySchemaJson
+def constructItemFactory(w3, name, symbol):
+
+    # construct a new item contract that will be used to create these item NFT's
+    itemABI = get_item_abi()
+    itemBytecode = get_item_bytecode()
+
+    ownerPrivateKey = os.environ.get('ETHEREUM_PRIVATE_KEY')
+    ownerPublicAddress = os.environ.get('ETHEREUM_PUBLIC_ADDRESS')
+
+    itemContract = w3.eth.contract(abi=itemABI, bytecode=itemBytecode)
+    item_txn = itemContract.constructor(name, symbol).build_transaction(
+        {
+            'from': ownerPublicAddress,
+            'nonce': w3.eth.get_transaction_count(ownerPublicAddress),
+        }
+    )
+
+    #print("create item contract: " + name + ", symbol: " + symbol)
+    tx_create = w3.eth.account.sign_transaction(item_txn, ownerPrivateKey)
+    tx_hash = w3.eth.send_raw_transaction(tx_create.rawTransaction)
+    tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+
+    itemContract = w3.eth.contract(
+        address=tx_receipt.contractAddress,
+        abi=itemABI
+    )
+
+    print("xxxxxxxxxxxxxxxxxxxxxxxxx  item contract: " + tx_receipt.contractAddress)
+
+    return itemContract
 
 
-def getProductSchema():
+def get_collection_contract(w3, collectionContractAddress):
 
-    # define product schema
-    #productSchema = ProductMetadataSchema()
-    #productSchemaJson = productSchema.toJSON()
-
-    productSchemaJson = get_product_metadata_schema()
-
-    print("Product (Collection) Metadata Schema")
-    print("------------------------------------")
-    print(productSchemaJson)
-    print("------------------------------------")
-
-    return productSchemaJson
-
-
-def getProductMetadata(id, name, description, image, productSchemaJson):
-
-    # define decentraland product
-
-    if name.lower() == "dcl halloween 2019":
-        attributeTypes = []
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="body_shapes",
-                    display_name="body_shapes",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["base male", "base female"]))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="category",
-                    display_name="category",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["Helmet", "Hat"]))
-            
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="collection",
-                    display_name="collection",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["Halloween 2019"]))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="rarity",
-                    display_name="rarity",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["rare"]))
-        
-        
-        
-    if name.lower() == "decentraland":
-        attributeTypes = []
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="type",
-                    display_name="type",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["parcel", "estate"]))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="status",
-                    display_name="status",
-                    struct_type="list",
-                    scalar_type="string",
-                    list = ["buy", "rent"]))
-            
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="x",
-                    display_name="x",
-                    struct_type="scalar",
-                    scalar_type="integer",
-                    min=-200,
-                    max=200))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="y",
-                    display_name = "y",
-                    struct_type="scalar",
-                    scalar_type="integer",
-                    min=-200,
-                    max=200))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="adjacent-to-road",
-                    display_name = "adjacent to road",
-                    struct_type="scalar",
-                    scalar_type="boolean"))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="near-a-district",
-                    display_name = "near a district",
-                    struct_type="scalar",
-                    scalar_type="boolean"))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="distance-to-road",
-                    display_name = "distance to road",
-                    struct_type="scalar",
-                    scalar_type="integer",
-                    min = 0,
-                    max = 10))
-        
-        attributeTypes.append(
-                AttributeTypeMetadata(
-                    name="distance-to-district",
-                    display_name = "distance to district",
-                    struct_type="scalar",
-                    scalar_type="integer",
-                    min = 0,
-                    max = 10))
+    with open("contracts/collectionContract.json") as f:
+        info_json = json.load(f)
+    collectionABI = info_json
+    collectionFactoryContract = w3.eth.contract(address=collectionContractAddress, 
+                                        abi=collectionABI)
     
+    supportsCollection = collectionFactoryContract.functions.supportsInterface(CollectionInterfaceId).call()
+    if supportsCollection == False:
+        return None
+    
+    return collectionFactoryContract
 
-    productMetadata = ProductMetadata(id=id, name=name, description=description, image=image, attributeTypes=attributeTypes)
-    productMetadataJson = productMetadata.toJSON()
-
-    print("Product Metadata")
-    print("------------------------------------")
-    print(productMetadataJson)
-    print("------------------------------------")
-
-    #validate metadata
-    print("validate schema")
-    validate_json(productMetadataJson, productSchemaJson)
-    print("schema validated ")
-
-    return productMetadataJson
-
-
-
-def getAssetSchema():
+def getCollectionSchema():
 
     # define decentraland nft schema
-    assetSchema = AssetMetadataSchema()
-    assetSchemaJson = assetSchema.toJSON()
+    collectionSchema = CollectionMetadataSchema()
+    collectionSchemaJson = collectionSchema.toJSON()
 
-    print("NFT Asset Schema ")
-    print("------------------------------------")
-    print(assetSchemaJson)
-    print("------------------------------------")
+    #print("NFT Collection Schema ")
+    #print("------------------------------------")
+    #print(collectionSchemaJson)
+    #print("------------------------------------")
 
-    return assetSchemaJson
+    return collectionSchemaJson
+
+
+
+def getItemSchema():
+
+    # define asset nft schema
+    itemSchema = ItemMetadataSchema()
+    itemSchemaJson = itemSchema.toJSON()
+
+    #print("NFT Item Schema ")
+    #print("------------------------------------")
+    #print(itemSchemaJson)
+    #print("------------------------------------")
+
+    return itemSchemaJson
+
 
 def getAssetMetadata(tokenId: int, openSeaAsset: OpenSeaAsset, assetSchemaJson: str):
 
@@ -373,7 +287,7 @@ def getAssetMetadata(tokenId: int, openSeaAsset: OpenSeaAsset, assetSchemaJson: 
         if trait.display_type == "number":
             display_type = "number"
 
-        assetMetadata = AssetAttributeMetadata(
+        assetMetadata = AttributeMetadata(
                 id = str(tokenId) + "-" + trait.trait_type,
                 type = trait.trait_type,
                 display_name = str(trait.value),
@@ -391,7 +305,7 @@ def getAssetMetadata(tokenId: int, openSeaAsset: OpenSeaAsset, assetSchemaJson: 
 
             # add another trait based on the distance
             if assetMetadata.value < 3:
-                adjacentAttribute = AssetAttributeMetadata(
+                adjacentAttribute = AttributeMetadata(
                     id = str(tokenId) + "-" + "near-a-district",
                     type = "near-a-district",
                     display_name = "yes",
@@ -409,7 +323,7 @@ def getAssetMetadata(tokenId: int, openSeaAsset: OpenSeaAsset, assetSchemaJson: 
 
             # add another trait based on the distance
             if assetMetadata.value < 3:
-                adjacentAttribute = AssetAttributeMetadata(
+                adjacentAttribute = AttributeMetadata(
                     id = str(tokenId) + "-" + "adjacent-to-road",
                     type = "adjacent-to-road",
                     display_name = "yes",
@@ -425,19 +339,19 @@ def getAssetMetadata(tokenId: int, openSeaAsset: OpenSeaAsset, assetSchemaJson: 
 
         attributes.append(assetMetadata)
 
-    assetMetadata = AssetMetadata(
+    assetMetadata = ItemMetadata(
         name = openSeaAsset.name,  
         display_name = openSeaAsset.name,  
         image = openSeaAsset.image_url,
         description="", 
-        price = 87.5,
+        #price = 87.5,
         attributes = attributes)
 
     assetMetadataJson = assetMetadata.toJSON()
-    print("Decentraland Asset Metadata")
-    print("------------------------------------")
-    print(assetMetadataJson)
-    print("------------------------------------")
+    #print("Decentraland Asset Metadata")
+    #print("------------------------------------")
+    #print(assetMetadataJson)
+    #print("------------------------------------")
 
     #validate metadata
     #print("validate schema")
@@ -537,14 +451,6 @@ def getCategoryMetadata(category: Category, categorySchemaJson: str):
     attributeTypes = []
     if category.name.lower() == "wearables":
 
-        productContractAddress = os.environ.get('PRODUCT_WEARABLE_CONTRACT')
-        print("(Rich) wearable add product ")
-        product = ProductMetadata(
-            id=productContractAddress,
-            name="decentraland-wearables"
-        )
-        products.append(product)
-
         # define decentraland land attribute types
         attributeTypes.append(
                 AttributeTypeMetadata(
@@ -580,13 +486,6 @@ def getCategoryMetadata(category: Category, categorySchemaJson: str):
 
 
     if category.name.lower() == "parcels":
-
-        productContractAddress = os.environ.get('PRODUCT_LAND_CONTRACT')
-        product = ProductMetadata(
-            id=productContractAddress,
-            name="Decentraland"
-        )
-        products.append(product)
 
         # define decentraland land attribute types
         attributeTypes.append(
@@ -655,24 +554,29 @@ def getCategoryMetadata(category: Category, categorySchemaJson: str):
                     min = 0,
                     max = 10))
 
-    categoryMetadata = CategoryMetadata(
-        name = category.name,  
-        display_name = category.name, 
-        image = category.image, 
-        description="", 
-        products=products,
+    categoryMetadata = CollectionMetadata(
+        name = category.name,   
+        description="",
+        type = "metaverse", 
         attribute_types = attributeTypes)
 
     categoryMetadataJson = categoryMetadata.toJSON()
+
+    '''
     print("Decentraland Category Metadata")
     print("------------------------------------")
     print(categoryMetadataJson)
     print("------------------------------------")
 
+    print("Decentraland Category Metadata Schema")
+    print("------------------------------------")
+    print(categorySchemaJson)
+    print("------------------------------------")
+    '''
     #validate metadata
-    #print("validate schema")
+    print("validate schema")
     validate_json(categoryMetadataJson, categorySchemaJson)
-    #print("schema validated ")
+    print("schema validated ")
 
     return categoryMetadataJson
 
@@ -696,85 +600,35 @@ def synch_category_list(current_page, page_size, search, sort, **kwargs):
     #print("connect to IPFS")
     ipfsclient = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
 
-    name = "decentraland catalog"
+    name = "decentraland category factory"
     symbol = "dec"
     
-    print("construct catalog: " + name)
-
-    #print("get catalog abi and bytecode")
-    catalogABI = get_catalog_abi()
-    catalogBytecode = get_catalog_bytecode()
-
-    ethereumPrivateKey = os.environ.get('ETHEREUM_PRIVATE_KEY')
-    ethereumAdminAddress = os.environ.get('ETHEREUM_ADMIN_ADDRESS')
-    account_from = {
-        "private_key": ethereumPrivateKey,
-        "address": ethereumAdminAddress,
-    }
-
-    print("start creating catalog contract ")
-    catalogContract = w3.eth.contract(abi=catalogABI, bytecode=catalogBytecode)
-    catalog_txn = catalogContract.constructor(name, symbol).build_transaction(
-        {
-            'from': account_from['address'],
-            'nonce': w3.eth.get_transaction_count(account_from['address']),
-        }
-    )
-
-    print("create catalog contract: " + name + ", symbol: " + symbol)
-    tx_create = w3.eth.account.sign_transaction(catalog_txn, account_from['private_key'])
-    tx_hash = w3.eth.send_raw_transaction(tx_create.rawTransaction)
-    tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-
-    print("catalog contract address: " + tx_receipt.contractAddress)
-    catalogContract = w3.eth.contract(
-        address=tx_receipt.contractAddress,
-        abi=catalogABI
-    )
-
-    print("latest ========> created new catalog contract: " + tx_receipt.contractAddress)
+    print("construct category factory: " + name)
+    categoryContractFactory = constructCollectionFactory(w3, name, symbol)
+    print("latest ========> created new category contract factory: " + categoryContractFactory.address)
     
+    ownerPrivateKey = os.environ.get('ETHEREUM_PRIVATE_KEY')
+    ownerPublicAddress = os.environ.get('ETHEREUM_PUBLIC_ADDRESS')
 
-    # set collection metadata
-    '''
-    print("get catalog schema")
-    catalogSchema = getCatalogSchema()
-    
-    catalogMetadata = getCatalogMetadata("decentraland", "decentraland ...", "", catalogSchema)
-    collectionMetadataHash = ipfsclient.add_str(catalogMetadata)
-
-    collectionUri = "ipfs://" + collectionMetadataHash
-    transaction = catalogContract.functions.setCollectionUri(collectionUri).build_transaction({
-            'from': account_from['address'],
-            'gas' : 8000000,
-            'nonce': w3.eth.get_transaction_count(account_from['address']),
-        })
-    signed_tx = w3.eth.account.sign_transaction(transaction, account_from['private_key'])
-    txn_hash1 = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
-    txn_receipt1 = w3.eth.wait_for_transaction_receipt(txn_hash1)
-    
-    print("xxxxxxxxxxxxxxxxxxxxxxxxx   created new catalog contract: " + tx_receipt.contractAddress)
-    '''
-
+    # create category NFT's
     catalog_categories = get_default_categories()
-
     for catalog_category in catalog_categories:
 
         print("create category NFT: " + catalog_category.name)
 
-        categorySchema = getCategorySchema()
+        categorySchema = getCollectionSchema()
         categoryMetadata = getCategoryMetadata(catalog_category, categorySchema)
         categoryMetadataHash = ipfsclient.add_str(categoryMetadata)
 
         categoryUri = "ipfs://" + categoryMetadataHash
 
-        nonce1 = w3.eth.get_transaction_count(account_from['address']) 
-        transaction = catalogContract.functions.mint(categoryUri).build_transaction({
-                'from': account_from['address'],
+        nonce1 = w3.eth.get_transaction_count(ownerPublicAddress) 
+        transaction = categoryContractFactory.functions.mint(categoryUri).build_transaction({
+                'from': ownerPublicAddress,
                 'gas' : 8000000,
                 'nonce': nonce1,
             })
-        signed_tx = w3.eth.account.sign_transaction(transaction, account_from['private_key'])
+        signed_tx = w3.eth.account.sign_transaction(transaction, ownerPrivateKey)
         txn_hash1 = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
         txn_receipt1 = w3.eth.wait_for_transaction_receipt(txn_hash1)
 
@@ -791,37 +645,37 @@ def synch_category_list(current_page, page_size, search, sort, **kwargs):
             print("add child token to parent")
 
             # add child to parent
-            nonce1 = w3.eth.get_transaction_count(account_from['address']) 
-            transaction = catalogContract.functions.nestTransferFrom(
-                account_from['address'],
-                tx_receipt.contractAddress,
+            nonce1 = w3.eth.get_transaction_count(ownerPublicAddress) 
+            transaction = categoryContractFactory.functions.nestTransferFrom(
+                ownerPublicAddress,
+                categoryContractFactory.address,
                 tokenId,
                 parent.tokenId,
                 "0x0000000000000000000000000000000000000000000000000000000000000000"
             ).build_transaction({
-                    'from': account_from['address'],
+                    'from': ownerPublicAddress,
                     'gas' : 8000000,
                     'nonce': nonce1,
                 })
-            signed_tx = w3.eth.account.sign_transaction(transaction, account_from['private_key'])
+            signed_tx = w3.eth.account.sign_transaction(transaction, ownerPrivateKey)
             txn_hash1 = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
             txn_receipt1 = w3.eth.wait_for_transaction_receipt(txn_hash1)
 
             print("accept child token addition")
 
             # accept child to parent
-            nonce1 = w3.eth.get_transaction_count(account_from['address']) 
-            transaction = catalogContract.functions.acceptChild(
+            nonce1 = w3.eth.get_transaction_count(ownerPublicAddress) 
+            transaction = categoryContractFactory.functions.acceptChild(
                 parent.tokenId,
                 0,
-                tx_receipt.contractAddress,
+                categoryContractFactory.address,
                 tokenId
             ).build_transaction({
-                    'from': account_from['address'],
+                    'from': ownerPublicAddress,
                     'gas' : 8000000,
                     'nonce': nonce1,
                 })
-            signed_tx = w3.eth.account.sign_transaction(transaction, account_from['private_key'])
+            signed_tx = w3.eth.account.sign_transaction(transaction, ownerPrivateKey)
             txn_hash1 = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
             txn_receipt1 = w3.eth.wait_for_transaction_receipt(txn_hash1)
 
@@ -841,14 +695,23 @@ def synch_category_list(current_page, page_size, search, sort, **kwargs):
     return c, total_count
  
 
-def retrieve_product_list(collection_slug):
+def retrieve_asset_list(collection_slug):
 
     #print("connect to Web3")
     w3 = Web3(Web3.HTTPProvider('http://localhost:8546'))
     w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
+    ownerPrivateKey = os.environ.get('ETHEREUM_PRIVATE_KEY')
+    ownerPublicAddress = os.environ.get('ETHEREUM_PUBLIC_ADDRESS')
+
     #print("connect to IPFS")
     ipfsclient = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
+
+    assetsContractFactory = constructItemFactory(w3, "opensea items factory", "osi")
+    print("xxxxxxxxxxxxxxxxxxxxxxxxx   created asset contract factory: " + assetsContractFactory.address)
+
+    categoryAddress = os.environ.get('CATEGORY_CONTRACT')
+    categoryContractFactory = get_collection_contract(w3, categoryAddress)
 
     # get opensea collections dictionary
     print("Get OpenSea collection data")
@@ -885,62 +748,6 @@ def retrieve_product_list(collection_slug):
         
         print("opensea collection: " + name + ", symbol: " + symbol + ", description: " + description + ", contractAddress: " + contractAddress)
 
-        #print("get product abi and bytecode")
-        productABI = get_product_abi()
-        productBytecode = get_product_bytecode()
-
-        ethereumPrivateKey = os.environ.get('ETHEREUM_PRIVATE_KEY')
-        account_from = {
-            "private_key": ethereumPrivateKey,
-            "address": "0x4FB0032AA225a94EdB257ae1d2338DfDc6d23e7F",
-        }
-
-        productContract = w3.eth.contract(abi=productABI, bytecode=productBytecode)
-        product_txn = productContract.constructor(name, symbol).build_transaction(
-            {
-                'from': account_from['address'],
-                'nonce': w3.eth.get_transaction_count(account_from['address']),
-            }
-        )
-
-        #print("create product contract: " + name + ", symbol: " + symbol)
-        tx_create = w3.eth.account.sign_transaction(product_txn, account_from['private_key'])
-        tx_hash = w3.eth.send_raw_transaction(tx_create.rawTransaction)
-        tx_receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
-
-        productContract = w3.eth.contract(
-            address=tx_receipt.contractAddress,
-            abi=productABI
-        )
-
-        # set collection metadata
-        #print("get product schema")
-        productSchema = getProductSchema()
-
-        #print("get product metadata")
-        productMetadata = getProductMetadata(
-            contractAddress,
-            name,
-            description,
-            imageUrl,
-            productSchema)
-
-        collectionMetadataHash = ipfsclient.add_str(productMetadata)
-
-        collectionUri = "ipfs://" + collectionMetadataHash
-        transaction = productContract.functions.setCollectionUri(collectionUri).build_transaction({
-                'from': account_from['address'],
-                'gas' : 8000000,
-                'nonce': w3.eth.get_transaction_count(account_from['address']),
-            })
-        signed_tx = w3.eth.account.sign_transaction(transaction, account_from['private_key'])
-        txn_hash1 = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
-        txn_receipt1 = w3.eth.wait_for_transaction_receipt(txn_hash1)
-
-        print("xxxxxxxxxxxxxxxxxxxxxxxxx   created new contract: " + tx_receipt.contractAddress)
-
-
-
         #productContractName = productContract.functions.name().call()
         #productContractSymbol = productContract.functions.symbol().call()
 
@@ -949,9 +756,8 @@ def retrieve_product_list(collection_slug):
         openSeaAssets = assetsResults.get("assets")
         for openSeaAssetDict in openSeaAssets:
 
-
-            #print(type(result))
-            #json_object = json.dumps(openSeaAssetDict, indent = 4) 
+            print(type(result))
+            json_object = json.dumps(openSeaAssetDict, indent = 4) 
             #print("------------------------------------")
             #print(json_object)
             #print("------------------------------------")
@@ -967,29 +773,80 @@ def retrieve_product_list(collection_slug):
             imageUrl = openSeaAsset.image_url
 
             print("construct asset metadata")
-            assetSchema = getAssetSchema()
+            assetSchema = getItemSchema()
             assetMetadata = getAssetMetadata(tokenId, openSeaAsset, assetSchema)
             assetMetadataHash = ipfsclient.add_str(assetMetadata)
 
             assetUri = "ipfs://" + assetMetadataHash
 
-            nonce1 = w3.eth.get_transaction_count(account_from['address']) 
-            transaction = productContract.functions.mint(assetUri).build_transaction({
-                    'from': account_from['address'],
+            nonce1 = w3.eth.get_transaction_count(ownerPublicAddress) 
+            transaction = assetsContractFactory.functions.mint(assetUri).build_transaction({
+                    'from': ownerPublicAddress,
                     'gas' : 8000000,
                     'nonce': nonce1,
                 })
-            signed_tx = w3.eth.account.sign_transaction(transaction, account_from['private_key'])
+            signed_tx = w3.eth.account.sign_transaction(transaction, ownerPrivateKey)
             txn_hash1 = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
             txn_receipt1 = w3.eth.wait_for_transaction_receipt(txn_hash1)
+
+            vals = array.array('B', txn_receipt1.logs[0].topics[3])
+            assetNFTTokenId = vals[len(vals) - 1]
+
+            # add asset to category nft
+            
+            parcelsTokenId = int(os.environ.get('PARCELS_TOKEN_ID'))
+            wearablesTokenId = int(os.environ.get('WEARABLES_TOKEN_ID'))
+
+            print("add asset to parcels: " + str(categoryAddress) + "-" + str(parcelsTokenId))
+            categoryTokenId = parcelsTokenId
+
+
+            # add child asset to parent collection
+            print("add asset to category")
+            nonce1 = w3.eth.get_transaction_count(ownerPublicAddress) 
+            transaction = assetsContractFactory.functions.nestTransferFrom(
+                ownerPublicAddress,
+                categoryAddress,
+                assetNFTTokenId,
+                categoryTokenId,
+                "0x0000000000000000000000000000000000000000000000000000000000000000"
+            ).build_transaction({
+                    'from': ownerPublicAddress,
+                    'gas' : 8000000,
+                    'nonce': nonce1,
+                })
+            signed_tx = w3.eth.account.sign_transaction(transaction, ownerPrivateKey)
+            txn_hash1 = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            txn_receipt1 = w3.eth.wait_for_transaction_receipt(txn_hash1)
+
+            print("accept child token addition")
+
+            # accept child to parent
+            nonce1 = w3.eth.get_transaction_count(ownerPublicAddress) 
+            transaction = categoryContractFactory.functions.acceptChild(
+                categoryTokenId,
+                0,
+                assetsContractFactory.address,
+                assetNFTTokenId
+            ).build_transaction({
+                    'from': ownerPublicAddress,
+                    'gas' : 8000000,
+                    'nonce': nonce1,
+                })
+            signed_tx = w3.eth.account.sign_transaction(transaction, ownerPrivateKey)
+            txn_hash1 = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            txn_receipt1 = w3.eth.wait_for_transaction_receipt(txn_hash1)
+
+            print("asset has been added to catalog")
+
         
         break
         
-def synch_product_list(current_page, page_size, search, sort, **kwargs):
+def synch_asset_list(current_page, page_size, search, sort, **kwargs):
 
-    #retrieve_product_list("decentraland")
+    retrieve_asset_list("decentraland")
 
-    retrieve_product_list("decentraland-wearables")
+    #retrieve_asset_list("decentraland-wearables")
     
 
 

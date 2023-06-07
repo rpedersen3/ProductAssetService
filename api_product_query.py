@@ -30,7 +30,7 @@ logger = logging.getLogger(__name__)
 def get_abi():
     with open("contracts/itemContract.json") as f:
         info_json = json.load(f)
-    abi = info_json["abi"]
+    abi = info_json
     return abi
 
 def get_bytecode():
@@ -115,7 +115,7 @@ def retrieve_category_products(slug):
 
     with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
-    catABI = info_json["abi"]
+    catABI = info_json
 
     categoryContract = w3.eth.contract(address=nftContractAddress, 
                                     abi=catABI)
@@ -234,13 +234,13 @@ def get_product_list(current_page, page_size, search, sort, filter: ProductFilte
                                             abi=productABI)
         
                 contractName = erc721Contract.functions.name().call()
-                collectionUri = erc721Contract.functions.getCollectionUri().call()
+                contractUri = erc721Contract.functions.getContractUri().call()
                 totalSupply = erc721Contract.functions.totalSupply().call()
                 totalSupply = 20
 
                 print("product name: " + contractName + ", total supply: " + str(totalSupply))
 
-                cid = collectionUri.replace("ipfs://", "");
+                cid = contractUri.replace("ipfs://", "");
                 metadataJson = ipfsclient.cat(cid)
                 metaProduct = json.loads(metadataJson)
 

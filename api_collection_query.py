@@ -16,7 +16,7 @@ from jsonschema import validate
 from api_attribute import AttributeType
 from api_collection import Collection, CollectionFilterInput, CollectionList, Collections, CollectionSortInput
 
-
+from constants import CollectionInterfaceId, ItemInterfaceId
 
 
 import redis
@@ -28,19 +28,6 @@ logger = logging.getLogger(__name__)
 
 
 
-def parse_products(collection, metaProducts):
-
-    collection.products = []
-    if metaProducts != None:
-        for metaProduct in metaProducts:
-
-            print("++++++++++ add product to collection: " + metaProduct.get("name"))
-
-            product = Product()
-            product.id = metaProduct.get("id")
-            product.name = metaProduct.get("name")
-
-            collection.products.append(product)
 
 
 def parse_attribute_types(collection, metaAttributeTypes):
@@ -78,8 +65,28 @@ def parse_attribute_types(collection, metaAttributeTypes):
 
             collection.attribute_types.append(attributeType)
 
+def get_collection_contract(w3, collectionContractAddress):
 
-def retrieve_collection(slug):
+    with open("contracts/collectionContract.json") as f:
+        info_json = json.load(f)
+    collectionABI = info_json
+    collectionFactoryContract = w3.eth.contract(address=collectionContractAddress, 
+                                        abi=collectionABI)
+    
+    supportsCollection = collectionFactoryContract.functions.supportsInterface(ItemInterfaceId).call()
+    print("item supports interface: " + str(collectionContractAddress) + " supports: " + str(supportsCollection))
+
+    supportsCollection = collectionFactoryContract.functions.supportsInterface(CollectionInterfaceId).call()
+    print("collection supports interface: " + str(collectionContractAddress) + " supports: " + str(supportsCollection))
+
+
+    if supportsCollection == False:
+        return None
+    
+    return collectionFactoryContract
+
+
+def retrieve_collection(filter):
 
     print("connect to blockchain on http://localhost:8546")
 
@@ -89,19 +96,22 @@ def retrieve_collection(slug):
     print("connect to ipfs on /ip4/127.0.0.1/tcp/5001")
     ipfsclient = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
 
-    nftContractAddress = os.environ.get('FEATURE_COLLECTION_CONTRACT')
+    collectionContractAddress = os.environ.get('FEATURE_COLLECTION_CONTRACT')
+    collectionTokenId = 1
 
-    print("retrieve collection contract")
-    with open("contracts/collectionContract.json") as f:
-        info_json = json.load(f)
-    catABI = info_json["abi"]
+    # get list of items
+    collectionNFTs = []
+    if filter != None and filter.collection_token_id != None and filter.collection_address:
+        # get list from collection
+        print("(Rich) ************* filter items by collection address: " + filter.collection_address)
+        collectionContractAddress = filter.collection_address
+        collectionTokenId = int(filter.collection_token_id)
 
-    collectionContract = w3.eth.contract(address=nftContractAddress, 
-                                    abi=catABI)
+    collectionContract = get_collection_contract(w3, collectionContractAddress) 
 
-    tokenId = int(slug.replace("/collection/", ""));
+    print("top collection: " + str(collectionContractAddress)) 
 
-    tokenURI = collectionContract.functions.tokenURI(tokenId).call()
+    tokenURI = collectionContract.functions.tokenURI(collectionTokenId).call()
 
     print("retrieve collection metadata")
     cid = tokenURI.replace("ipfs://", "");
@@ -111,68 +121,78 @@ def retrieve_collection(slug):
     
     metaCollection = json.loads(metadataJson)
     collection = Collection()
-    collection.id = str(tokenId)
-    collection.name = metaCollection.get("display_name")
+    collection.id = collectionContractAddress + "-" + str(collectionTokenId)
+    collection.name = metaCollection.get("name")
     collection.image = metaCollection.get("image")
-    collection.slug = "/collection/" + str(tokenId)
+    collection.slug = "/collection/" + str(collectionTokenId)
     collection.childs = []
 
-    parse_products(collection, metaCollection.get("products"))
     parse_attribute_types(collection, metaCollection.get("attribute_types"))
 
 
-    childCollectionTokenIds = collectionContract.functions.childrenOf(tokenId).call()
+    childCollectionTokenIds = collectionContract.functions.childrenOf(collectionTokenId).call()
     for childCollectionTokenId in childCollectionTokenIds:
         childTokenId = childCollectionTokenId[0]
-        #contractAddress = childCollection[1]
+        childAddress = childCollectionTokenId[1]
 
-        childTokenURI = collectionContract.functions.tokenURI(childTokenId).call()
+        print("childAddress: " + str(childAddress))
 
-        cid = childTokenURI.replace("ipfs://", "");
-        metadataJson = ipfsclient.cat(cid)
-        
-        metaCollection = json.loads(metadataJson)
+        childCollectionContract = get_collection_contract(w3, childAddress)
+        if childCollectionContract != None:
 
-        #print("l1 ipfs data: " + str(metadataJson))
+            childTokenURI = childCollectionContract.functions.tokenURI(childTokenId).call()
 
-        childCollection = Collection()
-        childCollection.id = str(childTokenId)
-        childCollection.name = metaCollection.get("display_name")
-        childCollection.image = metaCollection.get("image")
-        childCollection.slug = "/collection/" + str(childTokenId)
-        childCollection.childs = []
-
-        parse_products(childCollection, metaCollection.get("products"))
-        parse_attribute_types(childCollection, metaCollection.get("attribute_types"))
-
-        collection.childs.append(childCollection)
-
-        level2Collections = collectionContract.functions.childrenOf(childTokenId).call()
-
-        for level2Collection in level2Collections:
-            level2TokenId = level2Collection[0]
-            #contractAddress = topCollection[1]
-
-            level2TokenURI = collectionContract.functions.tokenURI(level2TokenId).call()
-            cid = level2TokenURI.replace("ipfs://", "");
+            cid = childTokenURI.replace("ipfs://", "");
             metadataJson = ipfsclient.cat(cid)
             
             metaCollection = json.loads(metadataJson)
 
-            #print("l2 ipfs data: " + str(metadataJson))
+            #print("l1 ipfs data: " + str(metadataJson))
 
-            level2Collection = Collection()
-            level2Collection.id = str(level2TokenId)
-            level2Collection.name = metaCollection.get("display_name")
-            level2Collection.image = metaCollection.get("image")
-            level2Collection.slug = "/collection/" + str(level2TokenId)
-            level2Collection.childs = []
+            childCollection = Collection()
+            childCollection.id = str(childTokenId)
+            childCollection.name = metaCollection.get("name")
+            childCollection.image = metaCollection.get("image")
+            childCollection.slug = "/collection/" + str(childTokenId)
+            childCollection.childs = []
 
-            parse_products(level2Collection, metaCollection.get("products"))
-            parse_attribute_types(level2Collection, metaCollection.get("attribute_types"))
+            parse_attribute_types(childCollection, metaCollection.get("attribute_types"))
 
-            childCollection.childs.append(level2Collection)
+            collection.childs.append(childCollection)
+
+            level2Collections = childCollectionContract.functions.childrenOf(childTokenId).call()
+
+            for level2Collection in level2Collections:
+                level2TokenId = level2Collection[0]
+                level2ContractAddress = level2Collection[1]
+
+                level2CollectionContract = get_collection_contract(w3, level2ContractAddress)
+                if level2CollectionContract != None:
+
+                    level2TokenURI = level2CollectionContract.functions.tokenURI(level2TokenId).call()
+                    cid = level2TokenURI.replace("ipfs://", "");
+                    metadataJson = ipfsclient.cat(cid)
+                    
+                    metaCollection = json.loads(metadataJson)
+
+                    #print("l2 ipfs data: " + str(metadataJson))
+
+                    level2Collection = Collection()
+                    level2Collection.id = str(level2TokenId)
+                    level2Collection.name = metaCollection.get("name")
+                    level2Collection.image = metaCollection.get("image")
+                    level2Collection.slug = "/collection/" + str(level2TokenId)
+                    level2Collection.childs = []
+
+                    print("parse attribute types")
+                    parse_attribute_types(level2Collection, metaCollection.get("attribute_types"))
+
+                    print("append")
+                    childCollection.childs.append(level2Collection)
+
+                    print("append done")
     
+    print("return collection")
     return collection
 
 class CollectionQuery(graphene.ObjectType):
@@ -194,27 +214,23 @@ class CollectionQuery(graphene.ObjectType):
     
 
     
-    
+    '''
     @staticmethod
     def resolve_collection(self, info, id=None, slug=None):
 
         print("**************  get collection: " + str(id) + " slug: " + str(slug))
         return retrieve_collection(slug)
-    
+    '''
     
     @staticmethod
     def resolve_collections(self, info, filter, current_page, page_size, search, sort):
 
-        topCollectionSlug = "/collection/1"
-        if filter != None and filter.slug != None:
-            topCollectionSlug = filter.slug
 
         total_count = 4
 
-        print("get collections for this top slug: " + topCollectionSlug)
-        topCollection = retrieve_collection(topCollectionSlug)
+        topCollection = retrieve_collection(filter)
         collections = topCollection.childs
-        print("return the children: " + str(collections))
+        #print("return the children: " + str(collections))
 
         return CollectionList(collections=collections, total_count=total_count)
     

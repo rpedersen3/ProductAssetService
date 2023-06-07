@@ -36,7 +36,7 @@ class CategoryProperties (MetaProperties):
 
         properties = AttributeTypeProperties()
         required = ["name", "description"]
-        self.attributeTypes = MetaStruct(type="array", properties=properties, required=required)
+        self.attribute = MetaStruct(type="array", properties=properties, required=required)
 
     name: MetaProperty
     price: MetaProperty

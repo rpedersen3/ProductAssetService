@@ -97,7 +97,7 @@ def validate_json(json_data, json_schema):
 def get_collection_abi():
     with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
-    abi = info_json["abi"]
+    abi = info_json
     return abi
 
 def get_collection_bytecode():
@@ -131,7 +131,7 @@ def getCollectionSchema():
 def get_item_abi():
     with open("contracts/itemContract.json") as f:
         info_json = json.load(f)
-    abi = info_json["abi"]
+    abi = info_json
     return abi
 
 def get_item_bytecode():
@@ -277,7 +277,7 @@ def getFeatureCollectionMetadata(collection, collectionSchemaJson):
     
 
     print("create collection metadata")
-    collectionMetadata = CollectionMetadata(id=id, name=title, type=itemType, description=description, attributeTypes=attributeTypes)
+    collectionMetadata = CollectionMetadata(name=title, type=itemType, description=description, attribute_types=attributeTypes)
     collectionMetadataJson = collectionMetadata.toJSON()
 
     print("Collection Metadata")
@@ -462,8 +462,10 @@ def retrieve_ogc_collection(collection_slug):
     ownerPrivateKey = os.environ.get('ETHEREUM_PRIVATE_KEY')
     ownerPublicAddress = os.environ.get('ETHEREUM_PUBLIC_ADDRESS')
 
-    print("(Rich) construct factories ")
+    print("(Rich) construct collection factory ")
     collectionFactory = constructCollectionFactory(w3, "OGC Collection", "OGCC")
+
+    print("(Rich) construct item factory ")
     featureFactory = constructItemFactory(w3, "OGC Item", "OGCI")
     
 

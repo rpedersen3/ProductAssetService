@@ -95,7 +95,7 @@ def retrieve_category(slug):
     print("retrieve category contract")
     with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
-    catABI = info_json["abi"]
+    catABI = info_json
 
     categoryContract = w3.eth.contract(address=nftContractAddress, 
                                     abi=catABI)
