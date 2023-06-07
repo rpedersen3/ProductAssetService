@@ -73,9 +73,6 @@ def get_collection_contract(w3, collectionContractAddress):
     collectionFactoryContract = w3.eth.contract(address=collectionContractAddress, 
                                         abi=collectionABI)
     
-    supportsCollection = collectionFactoryContract.functions.supportsInterface(ItemInterfaceId).call()
-    print("item supports interface: " + str(collectionContractAddress) + " supports: " + str(supportsCollection))
-
     supportsCollection = collectionFactoryContract.functions.supportsInterface(CollectionInterfaceId).call()
     print("collection supports interface: " + str(collectionContractAddress) + " supports: " + str(supportsCollection))
 

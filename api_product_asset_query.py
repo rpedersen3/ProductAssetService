@@ -19,7 +19,10 @@ from constants import erc165ABI, erc721ABI, ItemInterfaceId, BlockSetId, NFTCont
 from helper import FilterVisibility, SortEnum
 
 from api_attribute import Attribute, AttributeValue
-from api_product import Product
+
+from api_attribute import AttributeType
+from api_category import Category, CategoryFilterInput, CategoryList, Categories, CategorySortInput
+from constants import CollectionInterfaceId, ItemInterfaceId
 
 from api_product_asset import ProductAsset, ProductAssetFilterInput, ProductAssetList, ProductAssets, ProductAssetSortInput
 
@@ -52,77 +55,168 @@ def validate_json(json_data):
     message = "*************************Given JSON data is Valid"
     return True, message
 
-   
-def add_products(products, metaProducts):
 
-    if metaProducts != None:
-        for metaProduct in metaProducts:
-            product = Product()
-            product.id = metaProduct.get("id")
-            product.name = metaProduct.get("name")
-            products.append(product)
-
-    return products
-
-def retrieve_category_products(slug):
-
-    products = []
-
-    w3 = Web3(Web3.HTTPProvider('http://localhost:8546'))
-    w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-
-    ipfsclient = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
-
-    nftContractAddress = os.environ.get('CATEGORY_CONTRACT')
+def get_collection_contract(w3, collectionContractAddress):
 
     with open("contracts/collectionContract.json") as f:
         info_json = json.load(f)
-    catABI = info_json
+    collectionABI = info_json
+    collectionFactoryContract = w3.eth.contract(address=collectionContractAddress, 
+                                        abi=collectionABI)
+    
+    supportsCollection = collectionFactoryContract.functions.supportsInterface(CollectionInterfaceId).call()
+    if supportsCollection == False:
+        return None
+    
+    return collectionFactoryContract
 
-    categoryContract = w3.eth.contract(address=nftContractAddress, 
-                                    abi=catABI)
+def get_item_contract(w3, itemContractAddress):
 
-    tokenId = int(slug.replace("/category/", ""));
+    with open("contracts/itemContract.json") as f:
+        info_json = json.load(f)
+    itemABI = info_json
+    itemFactoryContract = w3.eth.contract(address=itemContractAddress, 
+                                        abi=itemABI)
+    
+    supportsCollection = itemFactoryContract.functions.supportsInterface(ItemInterfaceId).call()
+    if supportsCollection == False:
+        return None
+    
+    return itemFactoryContract
 
-    tokenURI = categoryContract.functions.tokenURI(tokenId).call()
+
+
+# copied from category, need to make into library
+def parse_attribute_types(category, metaAttributeTypes):
+    category.attribute_types = []
+    if metaAttributeTypes != None:
+        for metaAttributeType in metaAttributeTypes:
+
+            attributeType = AttributeType()
+            attributeType.id = metaAttributeType.get("name")
+            attributeType.name = metaAttributeType.get("name")
+            attributeType.display_name = metaAttributeType.get("display_name")
+            attributeType.struct_type = metaAttributeType.get("struct_type")
+            attributeType.scalar_type = metaAttributeType.get("scalar_type")
+            attributeType.min = metaAttributeType.get("min")
+            attributeType.max = metaAttributeType.get("max")
+
+            if attributeType.struct_type == 'scalar' and attributeType.scalar_type == "integer":
+                attributeType.display_type = 'number'
+
+            if attributeType.struct_type == 'scalar' and attributeType.scalar_type == "boolean":
+                attributeType.display_type = 'checkbox-list'
+                attributeType.values = []
+                attributeType.values.append("true")
+                attributeType.values.append("false")
+
+            if attributeType.struct_type == 'list':
+                attributeType.display_type = 'checkbox-list'
+                
+
+            metaList = metaAttributeType.get("list")
+            if (metaList != None):
+                attributeType.values = []
+                for metaListItem in metaList:
+                    attributeType.values.append(metaListItem)
+
+            category.attribute_types.append(attributeType)
+
+def retrieve_category_list(slug):
+
+    categories = []
+
+    w3 = Web3(Web3.HTTPProvider('http://localhost:8546'))
+    w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+    ipfsclient = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
+
+    contractAddress = os.environ.get('CATEGORY_CONTRACT')
+    tokenIdStr = slug.replace("/category/", "")
+
+    if "-" in tokenIdStr:
+        ids = tokenIdStr.split("-")
+        contractAddress = ids[0]
+        tokenIdStr = ids[1]
+
+    tokenId = int(tokenIdStr)
+
+    print("get contract: " + contractAddress)
+    topCategoryContract = get_collection_contract(w3, contractAddress)
+    tokenURI = topCategoryContract.functions.tokenURI(tokenId).call()
 
     cid = tokenURI.replace("ipfs://", "");
     metadataJson = ipfsclient.cat(cid)
 
+    #print("l0 ipfs data: " + str(metadataJson))
+    
     metaCategory = json.loads(metadataJson)
-    add_products(products, metaCategory.get("products"))
-    #parse_attribute_types(metaCategory.get("attribute_types"))
+    category = Category()
+    category.id = str(topCategoryContract.address) + "-" + str(tokenId)
+    category.name = metaCategory.get("name")
+    category.image = metaCategory.get("image")
+    category.slug = "/category/" + str(topCategoryContract.address) + "-" + str(tokenId)
+    category.childs = []
 
-    childCategoryTokenIds = categoryContract.functions.childrenOf(tokenId).call()
+    parse_attribute_types(category, metaCategory.get("attribute_types"))
+    categories.append(category)
+
+    childCategoryTokenIds = topCategoryContract.functions.childrenOf(tokenId).call()
     for childCategoryTokenId in childCategoryTokenIds:
-        childTokenId = childCategoryTokenId[0]
-        #contractAddress = childCategory[1]
+        childTokenId = int(childCategoryTokenId[0])
+        childAddress = childCategoryTokenId[1]
 
-        childTokenURI = categoryContract.functions.tokenURI(childTokenId).call()
+        childCategoryContract = get_collection_contract(w3, childAddress)
+        if childCategoryContract != None:
+            
+            childTokenURI = childCategoryContract.functions.tokenURI(childTokenId).call()
 
-        cid = childTokenURI.replace("ipfs://", "");
-        metadataJson = ipfsclient.cat(cid)
-        
-        metaCategory = json.loads(metadataJson)
-        add_products(products, metaCategory.get("products"))
-
-
-        level2Categories = categoryContract.functions.childrenOf(childTokenId).call()
-
-        for level2Category in level2Categories:
-            level2TokenId = level2Category[0]
-            #contractAddress = topCategory[1]
-
-            level2TokenURI = categoryContract.functions.tokenURI(level2TokenId).call()
-            cid = level2TokenURI.replace("ipfs://", "");
+            cid = childTokenURI.replace("ipfs://", "");
             metadataJson = ipfsclient.cat(cid)
             
             metaCategory = json.loads(metadataJson)
-            add_products(products, metaCategory.get("products"))
-            #parse_attribute_types(metaCategory.get("attribute_types"))
 
-    
-    return products
+            #print("l1 ipfs data: " + str(metadataJson))
+
+            childCategory = Category()
+            childCategory.id = str(childAddress) + "-" + str(childTokenId)
+            childCategory.name = metaCategory.get("name")
+            childCategory.image = metaCategory.get("image")
+            childCategory.slug = "/category/" + str(childAddress) + "-" + str(childTokenId)
+            childCategory.childs = []
+
+            parse_attribute_types(childCategory, metaCategory.get("attribute_types"))
+
+            category.childs.append(childCategory)
+            categories.append(childCategory)
+
+            level2Categories = childCategoryContract.functions.childrenOf(childTokenId).call()
+
+            for level2Category in level2Categories:
+                level2TokenId = int(level2Category[0])
+                level2Address = level2Category[1]
+
+                level2CategoryContract = get_collection_contract(w3, level2Address)
+                if level2CategoryContract != None:
+                    level2TokenURI = level2CategoryContract.functions.tokenURI(level2TokenId).call()
+                    cid = level2TokenURI.replace("ipfs://", "");
+                    metadataJson = ipfsclient.cat(cid)
+                    
+                    metaCategory = json.loads(metadataJson)
+
+                    #print("l2 ipfs data: " + str(metadataJson))
+
+                    level2Category = Category()
+                    level2Category.id = str(level2Address) + "-" + str(level2TokenId)
+                    level2Category.name = metaCategory.get("name")
+                    level2Category.image = metaCategory.get("image")
+                    level2Category.slug = "/category/" + str(level2Address) + "-" + str(level2TokenId)
+                    level2Category.childs = []
+
+                    parse_attribute_types(level2Category, metaCategory.get("attribute_types"))
+
+                    childCategory.childs.append(level2Category)
+                    categories.append(level2Category)
+    return categories
 
 class ProductAssetQuery(graphene.ObjectType):
     productAsset = graphene.Field(
@@ -231,343 +325,115 @@ class ProductAssetQuery(graphene.ObjectType):
                     min_price=min_price, max_price=max_price)
     
 
-def getERC721Contracts(w3, start, end):
-
-    #r.flushall()
-    #print("blocks: " + str(r.smembers(BlockSetId)))
-    #print("nft contracts: " + str(r.smembers(NFTContractSetId)))
-
-    for blockNumber in range(start, end):
-        if r.sismember(BlockSetId, blockNumber) == False:
-            #print("process block: " + str(blockNumber))
-            block = w3.eth.get_block(blockNumber, True)
-            for transaction in block.transactions:
-                #hashStr = transaction['hash'].hex()
-                transactionHash = transaction['hash']
-
-                #trans = w3.eth.get_transaction(transId)
-
-                transactionContractAddress = transaction['to']
-                #print("to contract address: " + str(transactionContractAddress))
-
-                if transactionContractAddress != None:
-                    erc165Contract = w3.eth.contract(address=str(transactionContractAddress), 
-                                                    abi=erc165ABI)
-
-
-                    try:
-                        supportsInterface = erc165Contract.functions.supportsInterface(ItemInterfaceId).call()
-                        if supportsInterface == True:
-
-                            if r.sismember(NFTContractSetId, transactionContractAddress) == False:
-                                print("add to NFT list: " + str(transactionContractAddress))
-                                r.sadd(NFTContractSetId, transactionContractAddress)
-
-                            #print("construct erc721 contract: " + str(transactionContractAddress) ) 
-                            erc721Contract = w3.eth.contract(address=transactionContractAddress, 
-                                                             abi=erc721ABI) 
-                            
-                            print("contract name: " + erc721Contract.functions.name().call())
-
-                    except:
-                        print("supports interface exception " )  
-
-            r.sadd(BlockSetId, blockNumber)
-    
+   
 def get_product_asset_list(current_page, page_size, search, sort, filter: ProductAssetFilterInput):
 
-    productAddresses = []
+    categories = []
 
     # get list of product contracts
     if filter.category_slug != None:
         # get list from category
         print("(Rich) ************* filter product assets by category slug: " + filter.category_slug)
-        products = retrieve_category_products(filter.category_slug)
-        if len(products) > 0:
-            for product in products:
-                print("(Rich) add product from category filter: " + str(product.id))
-                productAddresses.append(product.id)
 
-    elif filter.contract_address != None:
-        print("(Rich) add product from address filter: " + str(productAddresses))
-        productAddresses.append(productAddresses)
+        categories = retrieve_category_list(filter.category_slug)
 
-    else:
-        # get list from redis cach that came from blocks
-        nftContractSet = r.smembers(NFTContractSetId)
-        for nftContractAddress in nftContractSet:
-            print("(Rich) add product from list in cache: " + str(nftContractAddress))
-            productAddresses.append(nftContractAddress) 
 
-    print("(Rich) get assets for these products: " + str(productAddresses))
+
+    #print("(Rich) get assets for these categories: " + str(categories))
 
     #print("connect to Web3")
     w3 = Web3(Web3.HTTPProvider('http://localhost:8546'))
     w3.middleware_onion.inject(geth_poa_middleware, layer=0)
-
-    numberOfBlocks = w3.eth.block_number
-    index = numberOfBlocks
-
-    #getERC721Contracts(w3, 0, numberOfBlocks)
 
 
     total_count = 0
     p = []
     attribute_values = []
 
-    nameFilter = None
-    if filter != None and filter.name != None:
-        nameFilter = filter.name
-
-    #contractAddressFilter = None
-    #if filter != None and filter.contract_address != None:
-    #    contractAddressFilter = filter.contract_address
-
-
-    #contractAddressFilter = "0xf7F8C5e703B973b20F5ceFd9e78896a32E4a0bc9"
-            
+     
     #print("connect to IPFS")
     ipfsclient = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
 
     
-    for nftContractAddress in productAddresses:
-        try:
-            erc721Contract = w3.eth.contract(address=nftContractAddress, 
-                                        abi=erc721ABI)
+    for category in categories:
 
-            totalSupply = erc721Contract.functions.totalSupply().call()
-            contractName = erc721Contract.functions.name().call()
-            contractSymbol = erc721Contract.functions.symbol().call()
+        # get children assets of categories
+        ids = category.id.split("-")
+        categoryContractAddress = ids[0]
+        categoryTokenId = int(ids[1])
 
-            #print("contract: " + contractName + ", address: " + nftContractAddress)
+        categoryContract = get_collection_contract(w3, categoryContractAddress)
+        childCategoryTokenIds = categoryContract.functions.childrenOf(categoryTokenId).call()
+        for childCategoryTokenId in childCategoryTokenIds:
+            assetTokenId = childCategoryTokenId[0]
+            assetAddress = childCategoryTokenId[1]
 
-            found = True
-            if nameFilter != None:
-                if nameFilter != contractName:
-                    #print("filter on name")
-                    found = False
+            
+            assetContract = get_item_contract(w3, assetAddress)
+            if assetContract != None:
+                print("process asset contract: " + assetAddress)
 
-            #if contractAddressFilter != None:
-            #    if contractAddressFilter != nftContractAddress:
-            #        #print("filter on contract address: " + str())
-            #        found = False
+                filterAsset = True
 
-            if found:   
-                print("(Rich) get product assets: " + contractName + "; supply: " + str(totalSupply))
-                totalSupply = 20
+                tokenURI = assetContract.functions.tokenURI(assetTokenId).call()
 
-                product = Product()
-                product.id = contractName
-                product.name = contractName
-                product.productAddress = nftContractAddress
-                product.numberOfAssets = totalSupply
-
-                for tokenId in range(1, totalSupply):
-                    filterAsset = True
-
-                    tokenURI = erc721Contract.functions.tokenURI(tokenId).call()
-                    #print("token(" + str(tokenId) + ") uri: " + str(tokenURI))
-
-                    cid = tokenURI.replace("ipfs://", "");
-                    metadataJson = ipfsclient.cat(cid)
-                    
-                    metaAsset = json.loads(metadataJson)
-
-                    #print("ipfs data: " + str(metadataJson))
-
-                    productAsset = ProductAsset()
-                    productAsset.id = str(tokenId)
-                    productAsset.product = product
-                    productAsset.tokenId = tokenId
-                    productAsset.name = metaAsset.get("name")
-                    productAsset.display_name = metaAsset.get("display_name")
-                    #productAsset.description = assetMetadata["description"]
-                    productAsset.image = metaAsset.get("image")
-                    productAsset.slug = "/product-asset/" + nftContractAddress + "-" + str(tokenId)
-                    productAsset.attribute_values = []
-
-                    metaAttributes = metaAsset.get("attributes")
-                    for metaAttribute in metaAttributes:
-
-                        #print("meta attribute: " + str(metaAttribute))
-
-                        attributeValue = AttributeValue()
-                        attributeValue.id = metaAttribute.get("id")
-                        attributeValue.type = metaAttribute.get("type")
-                        attributeValue.display_type = metaAttribute.get("display_type")
-                        attributeValue.display_name = metaAttribute.get("display_name")
-                        attributeValue.value = metaAttribute.get("value")
-
-                        #display_type = "checkbox"
-                        #if (metaAttribute.get("display_type") == "number"):
-                        #    display_type = "number"
-                        #attributeValue.display_type = display_type
-
-                        attributeFilter = None
-                        if filter != None and filter.range_filters != None:
-                            
-                            for range_filter in filter.range_filters: 
-                                if range_filter.name.lower() == metaAttribute.get("type").lower():
-                                    attributeFilter = range_filter
-
-                        
-                        if attributeFilter:
-                            if int(attributeValue.value) < int(attributeFilter.min) or int(attributeValue.value) > int(attributeFilter.max):
-                                filterAsset = False
-                                #print("(Rich) ************  not pass filter: " + attributeFilter.name)
-
-                        #print("product asset =>  attribute values : " + str(attributeValue))
-                        productAsset.attribute_values.append(attributeValue)
-
-                    #print('append product asset: ' + str(productAsset))
-                    total_count += 1
-
-                    if filterAsset:
-                        p.append(productAsset)
-
-                    '''
-                    productAsset.slug = "/product/" + str(asset.default_code) + "-" + str(asset.id)
-                    productAsset.small_image = '/web/image/product.asset/{}/image_128'.format(asset.id)
-                    productAsset.image = '/web/image/product.asset/{}/image_1920'.format(asset.id)
-                    productAsset.image_filename = str(asset.default_code)
-
-                    
-
-                    productAsset.attribute_values = []
-                    
-                    for combination in asset.combination_ids:
-
-                        #print("(Rich) add asset combination to attribute value list:  " + str(combination.product_attribute_id.name))
-
-                        productAttribute = ProductAssetAttribute(combination.product_attribute_id.id)
-                        productAttribute.name = combination.product_attribute_id.name
-
-                        
-                        productAttributeValue = ProductAssetAttributeValue(combination.id)
-                        productAttributeValue.name = combination.attribute_value
-                        productAttributeValue.value = combination.attribute_value
-                        productAttributeValue.attribute = productAttribute
-
-                        attribute_values.append(productAttributeValue)
-                        productAsset.attribute_values.append(productAttributeValue)
-                    '''
-
-                    
-                    
-        except Exception as e:
-            message = 'contract construction exception: ' + str(e)
-            print('contract construction exception: ' + str(e))
-
-
-    '''
-
-    #while index > numberOfBlocks - 300:
-    #    index -= 1
-
-    #    #print ("block(" + str(index) + ") ")
-    #    block = w3.eth.get_block(index)
-    #    #print ("block(" + str(index) + ") done ")
-    #    ##print ("block(" + str(index) + ") " + str(block))
-    #    #print ("block ts(" + str(index) + ") " + str(block.items["transactions"]))   
-
-
-
-    # First offset is 0 but first page is 1
-    if current_page > 1:
-        offset = (current_page - 1) * page_size
-    else:
-        offset = 0
-
-    #order = get_search_order(sort)
-    order = 'id ASC'
-
-    #print("(Rich) search products ")
-    products = []
-
-    #print("(Rich) product_asset => search products:  " + str(products))
-
-    
-
-    # If attribute values are selected, we need to get the full list of attribute values and prices
-    #if domain == partial_domain:
-    #    attribute_values = products.mapped('asset_attribute_value_ids')
-    #    prices = products.mapped('list_price')
-    #    #print("(Rich) partial_domain get attributes and pricing:  " + str(attribute_values))
-    #else:
-    #    without_attributes_products = Product.search(partial_domain)
-    #    attribute_values = without_attributes_products.mapped('asset_attribute_value_ids')
-    #    prices = without_attributes_products.mapped('list_price')
-    #    #print("(Rich) not partial_domain get attributes and pricing:  " + str(attribute_values))
-    
-    total_count = len(products)
-    products = products[offset:offset + page_size]
-    #if prices:
-    #    return products, total_count, attribute_values, min(prices), max(prices)
-    
-    #print("(Rich) search product assets results:  " + str(products))
-
-    
-
-    total_count = 0
-    for product in products:
-        #print("(Rich) create product asset:  " + str(product))
-        #print("(Rich) create product asset ids:  " + str(product.product_asset_ids))
-        
-        attribute_values = []
-        for asset in product.product_asset_ids:
-
-            all_found = True
-            if kwargs.get('attribute_value_id', False):
-                #print("(Rich) check filter:  " + str(kwargs['attribute_value_id']))
-                for filter_attribute_value_id in kwargs['attribute_value_id']:
-                    found = False
-                    for product_template_attribute_value in asset.product_template_asset_value_ids:
-
-                        #print("(Rich) filter value a:  " + str(product_template_attribute_value))
-                        #print("(Rich) filter value b:  " + str(product_template_attribute_value.product_attribute_value_id))
-
-                        if filter_attribute_value_id == product_template_attribute_value.product_attribute_value_id.id:
-                            found = True
-
-                    if found == False:
-                        all_found = False
-
-            #print("(Rich) found:  " + str(all_found))
-            if all_found == True and asset.active == True:
-
-                #    domains.append([('attribute_line_ids.value_ids', 'in', kwargs['attribute_value_id'])])
-                #    #print("(Rich) filter by attribute_value_id: " + str(kwargs['attribute_value_id']))
-                    
-                #print("(Rich) search product assets:  " + str(asset))
-                productAsset = ProductAsset(asset.id)
-                productAsset.name = asset.name
-                productAsset.description = asset.description
-                productAsset.slug = "/product/" + str(asset.default_code) + "-" + str(asset.id)
-                productAsset.small_image = '/web/image/product.asset/{}/image_128'.format(asset.id)
-                productAsset.image = '/web/image/product.asset/{}/image_1920'.format(asset.id)
-                productAsset.image_filename = str(asset.default_code)
-
-
-                productAsset.attribute_values = []
+                cid = tokenURI.replace("ipfs://", "");
+                metadataJson = ipfsclient.cat(cid)
                 
-                for combination in asset.combination_ids:
+                metaAsset = json.loads(metadataJson)
 
-                    #print("(Rich) add asset combination to attribute value list:  " + str(combination.product_attribute_id.name))
+                #print("ipfs data: " + str(metadataJson))
 
-                    productAttribute = ProductAssetAttribute(combination.product_attribute_id.id)
-                    productAttribute.name = combination.product_attribute_id.name
+                productAsset = ProductAsset()
+                productAsset.id = assetAddress + "-" + str(assetTokenId)
+                #productAsset.product = product
+                productAsset.tokenId = assetTokenId
+                productAsset.name = metaAsset.get("name")
+                productAsset.display_name = metaAsset.get("display_name")
+                #productAsset.description = assetMetadata["description"]
+                productAsset.image = metaAsset.get("image")
+                productAsset.slug = "/product-asset/" + assetAddress + "-" + str(assetTokenId)
+                productAsset.attribute_values = []
+
+                metaAttributes = metaAsset.get("attributes")
+                for metaAttribute in metaAttributes:
+
+                    #print("meta attribute: " + str(metaAttribute))
+
+                    attributeValue = AttributeValue()
+                    attributeValue.id = metaAttribute.get("id")
+                    attributeValue.type = metaAttribute.get("type")
+                    attributeValue.display_type = metaAttribute.get("display_type")
+                    attributeValue.display_name = metaAttribute.get("display_name")
+                    attributeValue.value = metaAttribute.get("value")
+
+                    #display_type = "checkbox"
+                    #if (metaAttribute.get("display_type") == "number"):
+                    #    display_type = "number"
+                    #attributeValue.display_type = display_type
+
+                    attributeFilter = None
+                    if filter != None and filter.range_filters != None:
+                        
+                        for range_filter in filter.range_filters: 
+                            if range_filter.name.lower() == metaAttribute.get("type").lower():
+                                attributeFilter = range_filter
 
                     
-                    productAttributeValue = ProductAssetAttributeValue(combination.id)
-                    productAttributeValue.name = combination.attribute_value
-                    productAttributeValue.value = combination.attribute_value
-                    productAttributeValue.attribute = productAttribute
+                    if attributeFilter:
+                        if int(attributeValue.value) < int(attributeFilter.min) or int(attributeValue.value) > int(attributeFilter.max):
+                            filterAsset = False
+                            #print("(Rich) ************  not pass filter: " + attributeFilter.name)
 
-                    attribute_values.append(productAttributeValue)
-                    productAsset.attribute_values.append(productAttributeValue)
+                    #print("product asset =>  attribute values : " + str(attributeValue))
+                    productAsset.attribute_values.append(attributeValue)
 
-                p.append(productAsset)
-    '''            
+                #print('append product asset: ' + str(productAsset))
+                total_count += 1
+
+                if filterAsset:
+                    p.append(productAsset)
+
 
     #print("(Rich) return product assets:  " + str(p))
     return p, total_count, attribute_values, 0.0, 0.0

@@ -2,7 +2,7 @@
 import graphene
 
 from api_category_query import CategoryQuery, CategoryList
-from api_product_asset_query import ProductAssetQuery
+from api_product_asset_query import ProductAssetQuery, ProductAssetList
 
 
 from api_synch import SynchQuery, SynchAssetList, SynchCategoryList
@@ -17,5 +17,5 @@ class Query(SynchQuery, SynchFeatureQuery, CategoryQuery, ProductAssetQuery, Ite
 
 schema = graphene.Schema(
     query=Query,
-    types=[SynchAssetList, SynchCategoryList, SynchFeatureList, CategoryList, ItemList, CollectionList]
+    types=[SynchAssetList, SynchCategoryList, SynchFeatureList, CategoryList, ProductAssetList, ItemList, CollectionList]
 )

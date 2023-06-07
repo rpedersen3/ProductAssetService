@@ -14,10 +14,9 @@ import jsonschema
 from jsonschema import validate
 
 from api_attribute import AttributeType
-from api_product import Product
 from api_category import Category, CategoryFilterInput, CategoryList, Categories, CategorySortInput
 
-
+from constants import CollectionInterfaceId, ItemInterfaceId
 
 
 import redis
@@ -27,21 +26,6 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-
-
-def parse_products(category, metaProducts):
-
-    category.products = []
-    if metaProducts != None:
-        for metaProduct in metaProducts:
-
-            print("++++++++++ add product to category: " + metaProduct.get("name"))
-
-            product = Product()
-            product.id = metaProduct.get("id")
-            product.name = metaProduct.get("name")
-
-            category.products.append(product)
 
 
 def parse_attribute_types(category, metaAttributeTypes):
@@ -79,32 +63,48 @@ def parse_attribute_types(category, metaAttributeTypes):
 
             category.attribute_types.append(attributeType)
 
+def get_collection_contract(w3, collectionContractAddress):
+
+    with open("contracts/collectionContract.json") as f:
+        info_json = json.load(f)
+    collectionABI = info_json
+    collectionFactoryContract = w3.eth.contract(address=collectionContractAddress, 
+                                        abi=collectionABI)
+    
+    supportsCollection = collectionFactoryContract.functions.supportsInterface(CollectionInterfaceId).call()
+    print("collection supports interface: " + str(collectionContractAddress) + " supports: " + str(supportsCollection))
+
+
+    if supportsCollection == False:
+        return None
+    
+    return collectionFactoryContract
 
 def retrieve_category(slug):
 
-    print("connect to blockchain on http://localhost:8546")
+    #print("connect to blockchain on http://localhost:8546")
 
     w3 = Web3(Web3.HTTPProvider('http://localhost:8546'))
     w3.middleware_onion.inject(geth_poa_middleware, layer=0)
 
-    print("connect to ipfs on /ip4/127.0.0.1/tcp/5001")
+    #print("connect to ipfs on /ip4/127.0.0.1/tcp/5001")
     ipfsclient = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
 
-    nftContractAddress = os.environ.get('CATEGORY_CONTRACT')
+    contractAddress = os.environ.get('CATEGORY_CONTRACT')
+    tokenIdStr = slug.replace("/category/", "")
+    if "-" in tokenIdStr:
+        ids = tokenIdStr.split("-")
+        contractAddress = ids[0]
+        tokenIdStr = ids[1]
 
-    print("retrieve category contract")
-    with open("contracts/collectionContract.json") as f:
-        info_json = json.load(f)
-    catABI = info_json
+    tokenId = int(tokenIdStr)
 
-    categoryContract = w3.eth.contract(address=nftContractAddress, 
-                                    abi=catABI)
+    #print("retrieve category contract")
+    topCategoryContract = get_collection_contract(w3, contractAddress)
 
-    tokenId = int(slug.replace("/category/", ""));
+    tokenURI = topCategoryContract.functions.tokenURI(tokenId).call()
 
-    tokenURI = categoryContract.functions.tokenURI(tokenId).call()
-
-    print("retrieve category metadata")
+    #print("retrieve category metadata")
     cid = tokenURI.replace("ipfs://", "");
     metadataJson = ipfsclient.cat(cid)
 
@@ -112,67 +112,70 @@ def retrieve_category(slug):
     
     metaCategory = json.loads(metadataJson)
     category = Category()
-    category.id = str(tokenId)
-    category.name = metaCategory.get("display_name")
+    category.id = str(topCategoryContract.address) + "-" + str(tokenId)
+    category.name = metaCategory.get("name")
     category.image = metaCategory.get("image")
-    category.slug = "/category/" + str(tokenId)
+    category.slug = "/category/" + str(topCategoryContract.address) + "-" + str(tokenId)
     category.childs = []
 
-    parse_products(category, metaCategory.get("products"))
     parse_attribute_types(category, metaCategory.get("attribute_types"))
 
 
-    childCategoryTokenIds = categoryContract.functions.childrenOf(tokenId).call()
+    childCategoryTokenIds = topCategoryContract.functions.childrenOf(tokenId).call()
     for childCategoryTokenId in childCategoryTokenIds:
-        childTokenId = childCategoryTokenId[0]
-        #contractAddress = childCategory[1]
+        childTokenId = int(childCategoryTokenId[0])
+        childAddress = childCategoryTokenId[1]
 
-        childTokenURI = categoryContract.functions.tokenURI(childTokenId).call()
+        childCategoryContract = get_collection_contract(w3, childAddress)
+        if childCategoryContract != None:
+            
+            childTokenURI = childCategoryContract.functions.tokenURI(childTokenId).call()
 
-        cid = childTokenURI.replace("ipfs://", "");
-        metadataJson = ipfsclient.cat(cid)
-        
-        metaCategory = json.loads(metadataJson)
-
-        #print("l1 ipfs data: " + str(metadataJson))
-
-        childCategory = Category()
-        childCategory.id = str(childTokenId)
-        childCategory.name = metaCategory.get("display_name")
-        childCategory.image = metaCategory.get("image")
-        childCategory.slug = "/category/" + str(childTokenId)
-        childCategory.childs = []
-
-        parse_products(childCategory, metaCategory.get("products"))
-        parse_attribute_types(childCategory, metaCategory.get("attribute_types"))
-
-        category.childs.append(childCategory)
-
-        level2Categories = categoryContract.functions.childrenOf(childTokenId).call()
-
-        for level2Category in level2Categories:
-            level2TokenId = level2Category[0]
-            #contractAddress = topCategory[1]
-
-            level2TokenURI = categoryContract.functions.tokenURI(level2TokenId).call()
-            cid = level2TokenURI.replace("ipfs://", "");
+            cid = childTokenURI.replace("ipfs://", "");
             metadataJson = ipfsclient.cat(cid)
             
             metaCategory = json.loads(metadataJson)
 
-            #print("l2 ipfs data: " + str(metadataJson))
+            #print("l1 ipfs data: " + str(metadataJson))
 
-            level2Category = Category()
-            level2Category.id = str(level2TokenId)
-            level2Category.name = metaCategory.get("display_name")
-            level2Category.image = metaCategory.get("image")
-            level2Category.slug = "/category/" + str(level2TokenId)
-            level2Category.childs = []
+            childCategory = Category()
+            childCategory.id = str(childAddress) + "-" + str(childTokenId)
+            childCategory.name = metaCategory.get("name")
+            childCategory.image = metaCategory.get("image")
+            childCategory.slug = "/category/" + str(childAddress) + "-" + str(childTokenId)
+            childCategory.childs = []
 
-            parse_products(level2Category, metaCategory.get("products"))
-            parse_attribute_types(level2Category, metaCategory.get("attribute_types"))
+            parse_attribute_types(childCategory, metaCategory.get("attribute_types"))
 
-            childCategory.childs.append(level2Category)
+            category.childs.append(childCategory)
+
+
+            level2Categories = childCategoryContract.functions.childrenOf(childTokenId).call()
+
+            for level2Category in level2Categories:
+                level2TokenId = int(level2Category[0])
+                level2Address = level2Category[1]
+
+                level2CategoryContract = get_collection_contract(w3, level2Address)
+                if level2CategoryContract != None:
+                    level2TokenURI = level2CategoryContract.functions.tokenURI(level2TokenId).call()
+                    cid = level2TokenURI.replace("ipfs://", "");
+                    metadataJson = ipfsclient.cat(cid)
+                    
+                    metaCategory = json.loads(metadataJson)
+
+                    #print("l2 ipfs data: " + str(metadataJson))
+
+                    level2Category = Category()
+                    level2Category.id = str(level2Address) + "-" + str(level2TokenId)
+                    level2Category.name = metaCategory.get("name")
+                    level2Category.image = metaCategory.get("image")
+                    level2Category.slug = "/category/" + str(level2Address) + "-" + str(level2TokenId)
+                    level2Category.childs = []
+
+                    parse_attribute_types(level2Category, metaCategory.get("attribute_types"))
+
+                    childCategory.childs.append(level2Category)
     
     return category
 
