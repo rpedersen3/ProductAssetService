@@ -1,3 +1,5 @@
+from typing import List
+
 import graphene
 from graphene import ObjectType
 from graphene.types import generic
@@ -13,7 +15,7 @@ import json
 import jsonschema
 from jsonschema import validate
 
-from api_attribute import AttributeType
+from api_attribute import AttributeType, Facet
 from api_category import Category, CategoryFilterInput, CategoryList, Categories, CategorySortInput
 
 from constants import CollectionInterfaceId, ItemInterfaceId
@@ -72,14 +74,58 @@ def get_collection_contract(w3, collectionContractAddress):
                                         abi=collectionABI)
     
     supportsCollection = collectionFactoryContract.functions.supportsInterface(CollectionInterfaceId).call()
-    print("collection supports interface: " + str(collectionContractAddress) + " supports: " + str(supportsCollection))
-
 
     if supportsCollection == False:
         return None
     
     return collectionFactoryContract
 
+def add_facets(facets, metaAttributeTypes: List[AttributeType], attributeFilter):
+
+    for metaAttributeType in metaAttributeTypes:
+
+        # add facet
+        facet = Facet()
+        facet.id = metaAttributeType.name
+        facet.name = metaAttributeType.name
+        facet.display_name = metaAttributeType.display_name
+        facet.struct_type = metaAttributeType.struct_type
+        facet.scalar_type = metaAttributeType.scalar_type
+        facet.min = metaAttributeType.min
+        facet.max = metaAttributeType.max
+
+        if facet.struct_type == 'scalar' and facet.scalar_type == "integer":
+            facet.display_type = 'range'
+            facet.filtered_min = facet.min
+            facet.filtered_max = facet.max
+            if attributeFilter:
+                facet.filtered_min = attributeFilter.min
+                facet.filtered_max = attributeFilter.max
+
+        if facet.struct_type == 'scalar' and facet.scalar_type == "boolean":
+            facet.display_type = 'checkbox-list'
+            facet.list = []
+            facet.list.append("true")
+            facet.list.append("false")
+
+        if facet.struct_type == 'list':
+            facet.display_type = 'checkbox-list'
+
+        metaList = metaAttributeType.list
+        if (metaList != None):
+            facet.list = []
+            for metaListItem in metaList:
+                facet.list.append(metaListItem)
+        facet.filtered_list = facet.list;
+
+        facet_found = False
+        for existingFacet in facets:
+            if existingFacet.name == facet.name:
+                facet_found = True
+
+        if facet_found == False: 
+            facets.append(facet)
+        
 def retrieve_category(slug):
 
     #print("connect to blockchain on http://localhost:8546")
@@ -117,9 +163,11 @@ def retrieve_category(slug):
     category.image = metaCategory.get("image")
     category.slug = "/category/" + str(topCategoryContract.address) + "-" + str(tokenId)
     category.childs = []
+    category.facets = []
 
     parse_attribute_types(category, metaCategory.get("attribute_types"))
 
+    add_facets(category.facets, category.attribute_types, None)
 
     childCategoryTokenIds = topCategoryContract.functions.childrenOf(tokenId).call()
     for childCategoryTokenId in childCategoryTokenIds:
@@ -146,6 +194,7 @@ def retrieve_category(slug):
             childCategory.childs = []
 
             parse_attribute_types(childCategory, metaCategory.get("attribute_types"))
+            add_facets(category.facets, childCategory.attribute_types, None)
 
             category.childs.append(childCategory)
 
@@ -174,6 +223,7 @@ def retrieve_category(slug):
                     level2Category.childs = []
 
                     parse_attribute_types(level2Category, metaCategory.get("attribute_types"))
+                    add_facets(category.facets, level2Category.attribute_types, None)
 
                     childCategory.childs.append(level2Category)
     
@@ -203,7 +253,9 @@ class CategoryQuery(graphene.ObjectType):
     def resolve_category(self, info, id=None, slug=None):
 
         print("**************  get category: " + str(id) + " slug: " + str(slug))
-        return retrieve_category(slug)
+        category = retrieve_category(slug)
+
+        return category
     
     
     @staticmethod
@@ -215,10 +267,8 @@ class CategoryQuery(graphene.ObjectType):
 
         total_count = 4
 
-        print("get categories for this top slug: " + topCategorySlug)
-        topCategory = retrieve_category(topCategorySlug)
+        topCategory= retrieve_category(topCategorySlug)
         categories = topCategory.childs
-        print("return the children: " + str(categories))
 
-        return CategoryList(categories=categories, total_count=total_count)
+        return CategoryList(categories=categories, facets=topCategory.facets, total_count=total_count)
     

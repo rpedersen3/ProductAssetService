@@ -245,9 +245,9 @@ class ProductAssetQuery(graphene.ObjectType):
             slug = slug.replace("/product-asset/", "")
             print("(Rich) resolve product_asset for slug: " + str(slug))
             ids = slug.split("-")
-            productId = ids[len(ids)-2]
-            assetId = ids[len(ids)-1]
-            #print("(Rich) resolve product_asset for id from slug: " + str(assetId))
+            assetContractAddress = ids[0]
+            assetTokenId = int(ids[1])
+            #print("(Rich) resolve product_asset for id from slug: " + str(assetTokenId))
             #product = Product.search([('website_slug', '=', slug)], limit=1)
         elif barcode:
             print("(Rich) resolve product_asset for barcode: " + str(barcode))
@@ -261,62 +261,56 @@ class ProductAssetQuery(graphene.ObjectType):
 
         ipfsclient = ipfshttpclient.connect("/ip4/127.0.0.1/tcp/5001")
 
-        nftContractAddress = productId
-        tokenId = int(assetId)
-        erc721Contract = w3.eth.contract(address=nftContractAddress, 
-                                        abi=erc721ABI)
+        assetContract = get_item_contract(w3, assetContractAddress)
+        if assetContract != None:
 
-        totalSupply = erc721Contract.functions.totalSupply().call()
-        contractName = erc721Contract.functions.name().call()
-        contractSymbol = erc721Contract.functions.symbol().call()
+            tokenURI = assetContract.functions.tokenURI(int(assetTokenId)).call()
+            #print("token(" + str(assetTokenId) + ") uri: " + str(tokenURI))
 
-        tokenURI = erc721Contract.functions.tokenURI(int(assetId)).call()
-        #print("token(" + str(tokenId) + ") uri: " + str(tokenURI))
+            cid = tokenURI.replace("ipfs://", "");
+            metadataJson = ipfsclient.cat(cid)
+            
+            metaAsset = json.loads(metadataJson)
 
-        cid = tokenURI.replace("ipfs://", "");
-        metadataJson = ipfsclient.cat(cid)
-        
-        metaAsset = json.loads(metadataJson)
+            #print("ipfs data: " + str(metadataJson))
 
-        #print("ipfs data: " + str(metadataJson))
+            productAsset = ProductAsset()
+            productAsset.id = assetContractAddress + "-" + str(assetTokenId)
+            #productAsset.product = product
+            productAsset.tokenId = assetTokenId
+            productAsset.name = metaAsset.get("name")
+            productAsset.display_name = metaAsset.get("display_name")
+            #productAsset.description = assetMetadata["description"]
+            productAsset.image = metaAsset.get("image")
+            productAsset.slug = "/product-asset/" + assetContractAddress + "-" + str(assetTokenId)
+            productAsset.attribute_values = []
 
-        productAsset = ProductAsset()
-        productAsset.id = str(tokenId)
-        #productAsset.product = product
-        productAsset.tokenId = tokenId
-        productAsset.name = metaAsset.get("name")
-        productAsset.display_name = metaAsset.get("display_name")
-        #productAsset.description = assetMetadata["description"]
-        productAsset.image = metaAsset.get("image")
-        productAsset.slug = "/product-asset/" + nftContractAddress + "-" + str(tokenId)
-        productAsset.attribute_values = []
+            if productAsset.image == None:
+                productAsset.image = "noimage"
 
-        metaAttributes = metaAsset.get("attributes")
-        for metaAttribute in metaAttributes:
+            metaAttributes = metaAsset.get("attributes")
+            if metaAttributes != None:
+                for metaAttribute in metaAttributes:
 
-            #print("meta attribute: " + str(metaAttribute))
+                    #print("meta attribute: " + str(metaAttribute))
 
-            attributeValue = AttributeValue()
-            attributeValue.id = metaAttribute.get("id")
-            attributeValue.type = metaAttribute.get("type")
-            attributeValue.display_type = metaAttribute.get("display_type")
-            attributeValue.display_name = metaAttribute.get("display_name")
-            attributeValue.value = metaAttribute.get("value")
+                    attributeValue = AttributeValue()
+                    attributeValue.id = metaAttribute.get("id")
+                    attributeValue.type = metaAttribute.get("type")
+                    attributeValue.display_type = metaAttribute.get("display_type")
+                    attributeValue.display_name = metaAttribute.get("display_name")
+                    attributeValue.value = metaAttribute.get("value")
 
 
-            #print("product asset =>  attribute values : " + str(attributeValue))
-            productAsset.attribute_values.append(attributeValue)
+                    print("product asset =>  attribute values : " + str(attributeValue))
+                    productAsset.attribute_values.append(attributeValue)
 
 
-        print("(Rich) product asset found: " + str(productAsset))
+        #print("(Rich) product asset found: " + str(productAsset))
         return productAsset
 
     @staticmethod
     def resolve_productAssets(self, info, filter, current_page, page_size, search, sort):
-        print("(Rich) resolve_productAssets => get productAssets: ")
-        if filter != None:
-            print("   filter: " + str(filter))
-
         productAssets, total_count, attribute_values, min_price, max_price = get_product_asset_list(
             current_page, page_size, search, sort, filter)
         
@@ -333,8 +327,6 @@ def get_product_asset_list(current_page, page_size, search, sort, filter: Produc
     # get list of product contracts
     if filter.category_slug != None:
         # get list from category
-        print("(Rich) ************* filter product assets by category slug: " + filter.category_slug)
-
         categories = retrieve_category_list(filter.category_slug)
 
 
@@ -357,6 +349,8 @@ def get_product_asset_list(current_page, page_size, search, sort, filter: Produc
     
     for category in categories:
 
+        #print("get assets for category: " + category.id)
+
         # get children assets of categories
         ids = category.id.split("-")
         categoryContractAddress = ids[0]
@@ -368,10 +362,13 @@ def get_product_asset_list(current_page, page_size, search, sort, filter: Produc
             assetTokenId = childCategoryTokenId[0]
             assetAddress = childCategoryTokenId[1]
 
+            #print("get asset: " + str(assetTokenId))
+
             
             assetContract = get_item_contract(w3, assetAddress)
             if assetContract != None:
-                print("process asset contract: " + assetAddress)
+
+                #print("construct asset: " + str(assetTokenId))
 
                 filterAsset = True
 
@@ -395,38 +392,44 @@ def get_product_asset_list(current_page, page_size, search, sort, filter: Produc
                 productAsset.slug = "/product-asset/" + assetAddress + "-" + str(assetTokenId)
                 productAsset.attribute_values = []
 
+                if productAsset.image == None:
+                    productAsset.image = "noimage"
+
+                #print("asset image: " + productAsset.image)
+
                 metaAttributes = metaAsset.get("attributes")
-                for metaAttribute in metaAttributes:
+                if metaAttributes != None:
+                    for metaAttribute in metaAttributes:
 
-                    #print("meta attribute: " + str(metaAttribute))
+                        #print("meta attribute: " + str(metaAttribute))
 
-                    attributeValue = AttributeValue()
-                    attributeValue.id = metaAttribute.get("id")
-                    attributeValue.type = metaAttribute.get("type")
-                    attributeValue.display_type = metaAttribute.get("display_type")
-                    attributeValue.display_name = metaAttribute.get("display_name")
-                    attributeValue.value = metaAttribute.get("value")
+                        attributeValue = AttributeValue()
+                        attributeValue.id = metaAttribute.get("id")
+                        attributeValue.type = metaAttribute.get("type")
+                        attributeValue.display_type = metaAttribute.get("display_type")
+                        attributeValue.display_name = metaAttribute.get("display_name")
+                        attributeValue.value = metaAttribute.get("value")
 
-                    #display_type = "checkbox"
-                    #if (metaAttribute.get("display_type") == "number"):
-                    #    display_type = "number"
-                    #attributeValue.display_type = display_type
+                        #display_type = "checkbox"
+                        #if (metaAttribute.get("display_type") == "number"):
+                        #    display_type = "number"
+                        #attributeValue.display_type = display_type
 
-                    attributeFilter = None
-                    if filter != None and filter.range_filters != None:
+                        attributeFilter = None
+                        if filter != None and filter.range_filters != None:
+                            
+                            for range_filter in filter.range_filters: 
+                                if range_filter.name.lower() == metaAttribute.get("type").lower():
+                                    attributeFilter = range_filter
+
                         
-                        for range_filter in filter.range_filters: 
-                            if range_filter.name.lower() == metaAttribute.get("type").lower():
-                                attributeFilter = range_filter
+                        if attributeFilter:
+                            if int(attributeValue.value) < int(attributeFilter.min) or int(attributeValue.value) > int(attributeFilter.max):
+                                filterAsset = False
+                                #print("(Rich) ************  not pass filter: " + attributeFilter.name)
 
-                    
-                    if attributeFilter:
-                        if int(attributeValue.value) < int(attributeFilter.min) or int(attributeValue.value) > int(attributeFilter.max):
-                            filterAsset = False
-                            #print("(Rich) ************  not pass filter: " + attributeFilter.name)
-
-                    #print("product asset =>  attribute values : " + str(attributeValue))
-                    productAsset.attribute_values.append(attributeValue)
+                        #print("product asset =>  attribute values : " + str(attributeValue))
+                        productAsset.attribute_values.append(attributeValue)
 
                 #print('append product asset: ' + str(productAsset))
                 total_count += 1

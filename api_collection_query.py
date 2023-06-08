@@ -74,8 +74,6 @@ def get_collection_contract(w3, collectionContractAddress):
                                         abi=collectionABI)
     
     supportsCollection = collectionFactoryContract.functions.supportsInterface(CollectionInterfaceId).call()
-    print("collection supports interface: " + str(collectionContractAddress) + " supports: " + str(supportsCollection))
-
 
     if supportsCollection == False:
         return None
@@ -222,12 +220,10 @@ class CollectionQuery(graphene.ObjectType):
     @staticmethod
     def resolve_collections(self, info, filter, current_page, page_size, search, sort):
 
-
         total_count = 4
 
         topCollection = retrieve_collection(filter)
         collections = topCollection.childs
-        #print("return the children: " + str(collections))
 
         return CollectionList(collections=collections, total_count=total_count)
     

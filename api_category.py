@@ -4,7 +4,7 @@ from graphene.types import generic
 
 from helper import FilterVisibility, SortEnum
 
-from api_attribute import AttributeType
+from api_attribute import AttributeType, Facet
 from api_product import Product
 
 class Category(ObjectType):
@@ -16,6 +16,8 @@ class Category(ObjectType):
     slug = graphene.String()
     products = graphene.List(graphene.NonNull(lambda: Product))
     attribute_types = graphene.List(graphene.NonNull(lambda: AttributeType))
+    facets = graphene.List(graphene.NonNull(lambda: Facet))
+
     json_ld = generic.GenericScalar()
 
     tokenId = graphene.Int()
@@ -31,6 +33,9 @@ class Category(ObjectType):
     
     def resolve_attribute_types(self, info):
         return self.attribute_types or None
+    
+    def resolve_facets(self, info):
+        return self.facets or None
 
     def resolve_slug(self, info):
         return self.slug
@@ -39,6 +44,7 @@ class Category(ObjectType):
         return self.get_json_ld()
 
 class Categories(graphene.Interface):
+    facets = graphene.List(Facet)
     categories = graphene.List(Category)
     total_count = graphene.Int(required=True)
 
